@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface RdpStore {
 
+  public static final String COOKIE_MSTSHASH = "Cookie: mstshash=";
+  
   public RdpStore INSTANCE = new RdpStore() {
   };
 
@@ -32,7 +34,7 @@ public interface RdpStore {
   }
 
   default ConnectionInfo startRdpSessionIfMissingWithCookie(String cookie) throws IOException {
-    String host = cookie.replace("Cookie: mstshash=", "");
+    String host = cookie.replace(COOKIE_MSTSHASH, "");
     return new ConnectionInfo(InetAddress.getByName(host), 3389);
   }
 

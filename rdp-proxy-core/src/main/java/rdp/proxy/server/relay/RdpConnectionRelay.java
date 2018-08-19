@@ -11,6 +11,7 @@ import java.net.SocketAddress;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -21,10 +22,9 @@ import rdp.proxy.spi.ConnectionInfo;
 import rdp.proxy.spi.RdpStore;
 
 public class RdpConnectionRelay {
+  private static final Logger LOGGER = LoggerFactory.getLogger(RdpConnectionRelay.class);
 
   private static final String MSTSHASH = "mstshash";
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(RdpConnectionRelay.class);
 
   private final ServerSocket _ss;
   private final AtomicBoolean _running = new AtomicBoolean(true);
@@ -32,8 +32,8 @@ public class RdpConnectionRelay {
   private final RdpStore _store;
   private final int _bufferSize = 10000;
   private final long _checkTime = 1000;
-
-  private int _remoteRdpTimeout;
+  private final int _remoteRdpTimeout = (int) TimeUnit.MINUTES.toMillis(1);
+  private final int _soTimeout = (int) TimeUnit.MINUTES.toMillis(5);
 
   public RdpConnectionRelay(RdpProxyConfig config, RdpStore store) throws IOException {
     String bindAddress = config.getRdpBindAddress();
@@ -53,6 +53,7 @@ public class RdpConnectionRelay {
         _service.submit(() -> {
           try {
             handleNewConnection(socket);
+            LOGGER.info("Socket {} closed", socket);
           } catch (Throwable t) {
             LOGGER.error("Unknown error, during new connection setup", t);
           }
@@ -65,19 +66,30 @@ public class RdpConnectionRelay {
 
   private void handleNewConnection(Socket s) throws Exception {
     try (Socket socket = s) {
+      LOGGER.info("Socket {} new connection", socket);
       socket.setTcpNoDelay(true);
+      socket.setSoTimeout(_soTimeout);
+      socket.setKeepAlive(true);
       try (InputStream rcInput = socket.getInputStream(); OutputStream rcOutput = socket.getOutputStream()) {
+        LOGGER.info("Socket {} read first message", socket);
         byte[] message = readFirstMessage(rcInput);
+        if (message == null) {
+          return;
+        }
         ConnectionInfo connectionInfo;
+        LOGGER.info("Socket {} find cookie", socket);
         String cookie = findCookie(message);
         if (isCookie(cookie)) {
+          LOGGER.info("Socket {} cookie found", socket);
           connectionInfo = _store.startRdpSessionIfMissingWithCookie(cookie);
         } else {
+          LOGGER.info("Socket {} loadbalanceinfo found", socket);
           connectionInfo = _store.startRdpSessionIfMissingWithId(cookie);
         }
 
         if (connectionInfo == null) {
-          LOGGER.info("Connection info for cookie {} did not find a remote connection, hang up on {}", cookie, socket);
+          LOGGER.info("Socket {} connection info for cookie {} did not find a remote connection, hang up", socket,
+              cookie);
           return;
         }
 
@@ -87,6 +99,8 @@ public class RdpConnectionRelay {
           rdpServer.setTcpNoDelay(true);
           SocketAddress _endpoint = new InetSocketAddress(connectionInfo.getAddress(), connectionInfo.getPort());
           rdpServer.connect(_endpoint, _remoteRdpTimeout);
+          rdpServer.setSoTimeout(_soTimeout);
+          rdpServer.setKeepAlive(true);
           try (InputStream rsInput = rdpServer.getInputStream(); OutputStream rsOutput = rdpServer.getOutputStream()) {
             rsOutput.write(message);
             rsOutput.flush();
@@ -94,7 +108,7 @@ public class RdpConnectionRelay {
             Future<Void> f1 = startRelay(alive, rcInput, rsOutput);
             Future<Void> f2 = startRelay(alive, rsInput, rcOutput);
             while (_running.get()) {
-              if (f1.isDone() || f2.isDone()) {
+              if (shouldCloseConnection(f1, f2, rdpServer, socket)) {
                 alive.set(false);
                 f1.cancel(true);
                 f2.cancel(true);
@@ -106,6 +120,23 @@ public class RdpConnectionRelay {
         }
       }
     }
+  }
+
+  private boolean shouldCloseConnection(Future<Void> f1, Future<Void> f2, Socket rdpServerSocket,
+      Socket remoteClientTocket) {
+    if (f1.isDone()) {
+      return true;
+    }
+    if (f2.isDone()) {
+      return true;
+    }
+    if (rdpServerSocket.isClosed() || !rdpServerSocket.isConnected()) {
+      return true;
+    }
+    if (remoteClientTocket.isClosed() || !remoteClientTocket.isConnected()) {
+      return true;
+    }
+    return false;
   }
 
   private boolean isCookie(String cookie) {
@@ -140,15 +171,21 @@ public class RdpConnectionRelay {
     byte[] buf = new byte[available];
     input.read(buf, 0, available);
 
+    if (buf.length == 0) {
+      LOGGER.error("Unknown client, hang up");
+      return null;
+    }
     int tpktVersion = buf[0];
     if (tpktVersion != 3) {
-      throw new IOException("Unknown client");
+      LOGGER.error("Unknown client, hang up");
+      return null;
     }
     short len = getShort(buf, 2);
     if (len == buf.length) {
       return buf;
     }
-    throw new IOException("Length len " + len + " does not match buffer length " + buf.length);
+    LOGGER.error("Length len {} does not match buffer length {}", len, buf.length);
+    return null;
   }
 
   public static short getShort(byte[] b, int off) {

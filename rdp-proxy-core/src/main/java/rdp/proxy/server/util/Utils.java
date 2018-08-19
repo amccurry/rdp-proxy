@@ -11,7 +11,7 @@ import com.google.common.collect.ImmutableList.Builder;
 
 import rdp.proxy.server.RdpProxyConfig;
 import rdp.proxy.server.RdpProxyConfig.RdpProxyConfigBuilder;
-import rdp.proxy.server.setup.RdpProxySetup;
+import rdp.proxy.service.spi.RdpProxyServiceSetup;
 import rdp.proxy.spi.RdpStore;
 import rdp.proxy.spi.RdpSetting;
 import spark.Service;
@@ -26,12 +26,12 @@ public class Utils {
   private static final String RDP_HTTP_PORT = "RDP_HTTP_PORT";
   private static final String RDP_PORT = "RDP_PORT";
 
-  public static RdpProxySetup getRdpProxySetup(RdpProxyConfig config) throws Exception {
+  public static RdpProxyServiceSetup getRdpProxySetup(RdpProxyConfig config) throws Exception {
     String rdpProxySetupClassname = config.getRdpProxySetupClassname();
     if (rdpProxySetupClassname == null) {
-      return RdpProxySetup.INSTANCE;
+      return RdpProxyServiceSetup.INSTANCE;
     }
-    Class<? extends RdpProxySetup> clazz = (Class<? extends RdpProxySetup>) Class.forName(rdpProxySetupClassname);
+    Class<? extends RdpProxyServiceSetup> clazz = (Class<? extends RdpProxyServiceSetup>) Class.forName(rdpProxySetupClassname);
     return clazz.newInstance();
   }
 
@@ -55,7 +55,7 @@ public class Utils {
   }
 
   public static Service igniteService(RdpProxyConfig config) throws Exception {
-    RdpProxySetup setup = getRdpProxySetup(config);
+    RdpProxyServiceSetup setup = getRdpProxySetup(config);
     Service service = Service.ignite();
     service.port(config.getRdpHttpPort());
     service.ipAddress(config.getRdpHttpBindAddress());

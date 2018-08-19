@@ -10,14 +10,20 @@
 	<modules>
 		<module>rdp-proxy-core</module>
 		<module>rdp-proxy-file</module>
-		<module>rdp-proxy-spi</module>
+		<module>rdp-proxy-store-spi</module>
+		<module>rdp-proxy-service-spi</module>
 	</modules>
 
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
 				<groupId>rdp-proxy</groupId>
-				<artifactId>rdp-proxy-spi</artifactId>
+				<artifactId>rdp-proxy-service-spi</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>rdp-proxy</groupId>
+				<artifactId>rdp-proxy-store-spi</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
@@ -79,6 +85,18 @@
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
+	<dependencies>
+	<dependency>
+		<groupId>org.projectlombok</groupId>
+		<artifactId>lombok</artifactId>
+		<scope>provided</scope>
+	</dependency>
+	<dependency>
+		<groupId>org.junit.jupiter</groupId>
+		<artifactId>junit-jupiter-api</artifactId>
+		<scope>test</scope>
+	</dependency>
+</dependencies>
 	<build>
 		<pluginManagement>
 			<plugins>
