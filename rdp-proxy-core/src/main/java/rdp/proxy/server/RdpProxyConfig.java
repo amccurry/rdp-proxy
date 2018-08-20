@@ -2,6 +2,7 @@ package rdp.proxy.server;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.concurrent.TimeUnit;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,6 +34,15 @@ public class RdpProxyConfig {
 
   @Default
   int rdpBacklog = 100;
+
+  @Default
+  int rdpRelayBufferSize = 10_000;
+
+  @Default
+  int rdpRemoteTcpTimeout = (int) TimeUnit.MINUTES.toMillis(1);
+
+  @Default
+  int rdpSoTimeout = (int) TimeUnit.DAYS.toMillis(1);;
 
   public String getRdpHostname() throws IOException {
     String hostnameAdvertised = getRdpHostnameAdvertised();

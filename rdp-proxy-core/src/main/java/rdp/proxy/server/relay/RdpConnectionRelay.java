@@ -22,6 +22,7 @@ import rdp.proxy.spi.ConnectionInfo;
 import rdp.proxy.spi.RdpStore;
 
 public class RdpConnectionRelay {
+
   private static final Logger LOGGER = LoggerFactory.getLogger(RdpConnectionRelay.class);
 
   private static final String MSTSHASH = "mstshash";
@@ -30,16 +31,20 @@ public class RdpConnectionRelay {
   private final AtomicBoolean _running = new AtomicBoolean(true);
   private final ExecutorService _service;
   private final RdpStore _store;
-  private final int _bufferSize = 10000;
-  private final long _checkTime = 1000;
-  private final int _remoteRdpTimeout = (int) TimeUnit.MINUTES.toMillis(1);
-  private final int _soTimeout = (int) TimeUnit.MINUTES.toMillis(5);
+  private final int _bufferSize;
+  private final long _relayCheckTime = TimeUnit.SECONDS.toMillis(1);
+  private final int _remoteRdpTcpTimeout;
+  private final int _soTimeout;
 
   public RdpConnectionRelay(RdpProxyConfig config, RdpStore store) throws IOException {
+    _bufferSize = config.getRdpRelayBufferSize();
+    _remoteRdpTcpTimeout = config.getRdpRemoteTcpTimeout();
+    _soTimeout = config.getRdpSoTimeout();
+    _store = store;
+
     String bindAddress = config.getRdpBindAddress();
     int port = config.getRdpPort();
     int backlog = config.getRdpBacklog();
-    _store = store;
     InetAddress bindAddr = InetAddress.getByName(bindAddress);
     _ss = new ServerSocket(port, backlog, bindAddr);
     _service = Executors.newCachedThreadPool();
@@ -50,17 +55,18 @@ public class RdpConnectionRelay {
       Socket socket;
       try {
         socket = _ss.accept();
-        _service.submit(() -> {
-          try {
-            handleNewConnection(socket);
-            LOGGER.info("Socket {} closed", socket);
-          } catch (Throwable t) {
-            LOGGER.error("Unknown error, during new connection setup", t);
-          }
-        });
       } catch (Throwable t) {
         LOGGER.error("Unknown error", t);
+        continue;
       }
+      _service.submit(() -> {
+        try {
+          handleNewConnection(socket);
+          LOGGER.info("Socket {} closed", socket);
+        } catch (Throwable t) {
+          LOGGER.error("Unknown error, during new connection setup", t);
+        }
+      });
     }
   }
 
@@ -98,7 +104,7 @@ public class RdpConnectionRelay {
         try (Socket rdpServer = new Socket(connectionInfo.getProxy())) {
           rdpServer.setTcpNoDelay(true);
           SocketAddress _endpoint = new InetSocketAddress(connectionInfo.getAddress(), connectionInfo.getPort());
-          rdpServer.connect(_endpoint, _remoteRdpTimeout);
+          rdpServer.connect(_endpoint, _remoteRdpTcpTimeout);
           rdpServer.setSoTimeout(_soTimeout);
           rdpServer.setKeepAlive(true);
           try (InputStream rsInput = rdpServer.getInputStream(); OutputStream rsOutput = rdpServer.getOutputStream()) {
@@ -114,7 +120,7 @@ public class RdpConnectionRelay {
                 f2.cancel(true);
                 return;
               }
-              Thread.sleep(_checkTime);
+              Thread.sleep(_relayCheckTime);
             }
           }
         }
