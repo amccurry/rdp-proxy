@@ -107,7 +107,7 @@ public class RdpProxy implements Closeable {
       HttpServletResponse servletResponse = response.raw();
       PrintWriter printWriter = servletResponse.getWriter();
       for (RdpSetting setting : rdpSettingsMap.values()) {
-        printWriter.println(setting);
+        printWriter.println(setting + "\r");
       }
       printWriter.flush();
       return null;

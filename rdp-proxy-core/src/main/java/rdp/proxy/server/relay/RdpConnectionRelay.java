@@ -1,5 +1,6 @@
 package rdp.proxy.server.relay;
 
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -175,29 +176,36 @@ public class RdpConnectionRelay {
   }
 
   private byte[] readFirstMessage(InputStream input) throws IOException {
-    int available = input.available();
-    byte[] buf = new byte[available];
-    input.read(buf, 0, available);
-
-    if (buf.length == 0) {
-      LOGGER.error("Unknown client, hang up");
-      return null;
-    }
-    int tpktVersion = buf[0];
+    DataInputStream dataInput = new DataInputStream(input);
+    int tpktVersion = dataInput.readUnsignedByte();
     if (tpktVersion != 3) {
       LOGGER.error("Unknown client, hang up");
       return null;
     }
-    short len = getShort(buf, 2);
-    if (len == buf.length) {
-      return buf;
+
+    int len = dataInput.readUnsignedShort();
+    byte[] buf = new byte[len - 3];
+    dataInput.readFully(buf);
+
+    if (buf.length + 3 != len) {
+      LOGGER.error("Length len {} does not match buffer length {}, hang up", len, buf.length);
+      return null;
     }
-    LOGGER.error("Length len {} does not match buffer length {}, hang up", len, buf.length);
-    return null;
+
+    byte[] result = new byte[len + 3];
+    result[0] = (byte) tpktVersion;
+    putShort(result, 1, (short) len);
+    System.arraycopy(buf, 0, result, 3, buf.length);
+    return buf;
   }
 
   public static short getShort(byte[] b, int off) {
     return (short) ((b[off + 1] & 0xFF) + (b[off] << 8));
+  }
+
+  public static void putShort(byte[] b, int off, short val) {
+    b[off + 1] = (byte) (val);
+    b[off] = (byte) (val >>> 8);
   }
 
 }
