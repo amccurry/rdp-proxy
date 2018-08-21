@@ -56,18 +56,73 @@ public class Utils {
 
   public static RdpProxyConfig getConfig() {
     RdpProxyConfigBuilder builder = RdpProxyConfig.builder();
-    builder.rdpPort(ConfigUtil.loadProperty(RDP_PORT, value -> Integer.parseInt(value)));
-    builder.rdpHttpPort(ConfigUtil.loadProperty(RDP_HTTP_PORT, value -> Integer.parseInt(value)));
-    builder.rdpBindAddress(ConfigUtil.loadProperty(RDP_BIND_ADDRESS, value -> value));
-    builder.rdpHttpBindAddress(ConfigUtil.loadProperty(RDP_HTTP_BIND_ADDRESS, value -> value));
-    builder.rdpHostnameAdvertised(ConfigUtil.loadProperty(RDP_HOSTNAME_ADVERTISED, value -> value));
 
-    builder.rdpProxySetupClassname(ConfigUtil.loadProperty(RDP_PROXY_SETUP_CLASSNAME, value -> value));
-    builder.rdpMetaStoreClassname(ConfigUtil.loadProperty(RDP_META_STORE_CLASSNAME, value -> value));
-    builder.rdpBacklog(ConfigUtil.loadProperty(RDP_BACKLOG, value -> Integer.parseInt(value)));
-    builder.rdpRelayBufferSize(ConfigUtil.loadProperty(RDP_RELAY_BUFFER_SIZE, value -> Integer.parseInt(value)));
-    builder.rdpRemoteTcpTimeout(ConfigUtil.loadProperty(RDP_REMOTE_TCP_TIMEOUT, value -> Integer.parseInt(value)));
-    builder.rdpSoTimeout(ConfigUtil.loadProperty(RDP_SO_TIMEOUT, value -> Integer.parseInt(value)));
+    {
+      Integer prop = ConfigUtil.loadProperty(RDP_PORT, value -> Integer.parseInt(value));
+      if (prop != null) {
+        builder.rdpPort(prop);
+      }
+    }
+    {
+      Integer prop = ConfigUtil.loadProperty(RDP_HTTP_PORT, value -> Integer.parseInt(value));
+      if (prop != null) {
+        builder.rdpHttpPort(prop);
+      }
+    }
+    {
+      String prop = ConfigUtil.loadProperty(RDP_BIND_ADDRESS, value -> value);
+      if (prop != null) {
+        builder.rdpBindAddress(prop);
+      }
+    }
+    {
+      String prop = ConfigUtil.loadProperty(RDP_HTTP_BIND_ADDRESS, value -> value);
+      if (prop != null) {
+        builder.rdpHttpBindAddress(prop);
+      }
+    }
+    {
+      String prop = ConfigUtil.loadProperty(RDP_HOSTNAME_ADVERTISED, value -> value);
+      if (prop != null) {
+        builder.rdpHostnameAdvertised(prop);
+      }
+    }
+    {
+      String prop = ConfigUtil.loadProperty(RDP_PROXY_SETUP_CLASSNAME, value -> value);
+      if (prop != null) {
+        builder.rdpProxySetupClassname(prop);
+      }
+    }
+    {
+      String prop = ConfigUtil.loadProperty(RDP_META_STORE_CLASSNAME, value -> value);
+      if (prop != null) {
+        builder.rdpMetaStoreClassname(prop);
+      }
+    }
+    {
+      Integer prop = ConfigUtil.loadProperty(RDP_BACKLOG, value -> Integer.parseInt(value));
+      if (prop != null) {
+        builder.rdpBacklog(prop);
+      }
+    }
+    {
+      Integer prop = ConfigUtil.loadProperty(RDP_RELAY_BUFFER_SIZE, value -> Integer.parseInt(value));
+      if (prop != null) {
+        builder.rdpRelayBufferSize(prop);
+      }
+    }
+    {
+      Integer prop = ConfigUtil.loadProperty(RDP_REMOTE_TCP_TIMEOUT, value -> Integer.parseInt(value));
+      if (prop != null) {
+        builder.rdpRemoteTcpTimeout(prop);
+      }
+    }
+    {
+      Integer prop = ConfigUtil.loadProperty(RDP_SO_TIMEOUT, value -> Integer.parseInt(value));
+      if (prop != null) {
+        builder.rdpSoTimeout(prop);
+      }
+    }
 
     return builder.build();
   }

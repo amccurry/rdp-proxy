@@ -42,7 +42,7 @@ public class RdpProxyConfig {
   int rdpRemoteTcpTimeout = (int) TimeUnit.MINUTES.toMillis(1);
 
   @Default
-  int rdpSoTimeout = (int) TimeUnit.DAYS.toMillis(1);;
+  int rdpSoTimeout = (int) TimeUnit.DAYS.toMillis(1);
 
   public String getRdpHostname() throws IOException {
     String hostnameAdvertised = getRdpHostnameAdvertised();
