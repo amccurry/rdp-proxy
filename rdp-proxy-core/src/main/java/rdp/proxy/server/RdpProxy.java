@@ -128,7 +128,7 @@ public class RdpProxy implements Closeable {
   }
 
   private void addIfMissing(Map<String, RdpSetting> rdpSettingsMap, RdpSetting setting) {
-    if (!rdpSettingsMap.containsKey(setting)) {
+    if (!rdpSettingsMap.containsKey(setting.getName())) {
       rdpSettingsMap.put(setting.getName(), setting);
     }
   }
