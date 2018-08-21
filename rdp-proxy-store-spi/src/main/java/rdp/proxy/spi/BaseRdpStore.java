@@ -38,14 +38,14 @@ public abstract class BaseRdpStore implements RdpStore {
   @Override
   public Set<ConnectionInfo> getConnectionInfoWithCookie(String cookie) throws IOException {
     if (isCookieMstsHash(cookie)) {
-      String host = getLoadBaclanceInfo(cookie);
+      String host = getMstsHashValue(cookie);
       return toSet(new ConnectionInfo(InetAddress.getByName(host), 3389));
     } else {
       return toSet(new ConnectionInfo(InetAddress.getByName(cookie), 3389));
     }
   }
 
-  protected static String getLoadBaclanceInfo(String cookie) {
+  protected static String getMstsHashValue(String cookie) {
     return cookie.replace(COOKIE_MSTSHASH, "");
   }
 
