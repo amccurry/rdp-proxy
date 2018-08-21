@@ -65,11 +65,18 @@ public class RdpProxy implements Closeable {
       if (!_store.isValidUser(user)) {
         _service.halt(404);
       }
-      String id = _store.getLoadBalanceInfo(user);
+
+      String loadBalanceInfo = _store.getLoadBalanceInfo(user);
+
+      List<RdpSetting> rdpSettings = _store.getRdpSettings(defaultSettings, user, loadBalanceInfo, _hostnameAdvertised,
+          _rdpPort);
+      Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
+      RdpSetting fullAddress = rdpSettingsMap.get(FULL_ADDRESS);
+
       return RdpInfoResponse.builder()
                             .user(user)
-                            .loadBalanceInfo(id)
-                            .hostname(_hostnameAdvertised)
+                            .loadBalanceInfo(loadBalanceInfo)
+                            .hostname(fullAddress.getStringValue())
                             .port(_rdpPort)
                             .build();
     };
@@ -81,7 +88,8 @@ public class RdpProxy implements Closeable {
       }
       String loadBalanceInfo = _store.getLoadBalanceInfo(user);
 
-      List<RdpSetting> rdpSettings = _store.getRdpSettings(defaultSettings, user, loadBalanceInfo, _hostnameAdvertised, _rdpPort);
+      List<RdpSetting> rdpSettings = _store.getRdpSettings(defaultSettings, user, loadBalanceInfo, _hostnameAdvertised,
+          _rdpPort);
       Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
 
       // full address:s:localhost:3389
