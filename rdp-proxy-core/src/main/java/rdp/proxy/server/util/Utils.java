@@ -12,8 +12,10 @@ import com.google.common.collect.ImmutableList.Builder;
 import rdp.proxy.server.RdpProxyConfig;
 import rdp.proxy.server.RdpProxyConfig.RdpProxyConfigBuilder;
 import rdp.proxy.service.spi.RdpProxyServiceSetup;
-import rdp.proxy.spi.RdpStore;
+import rdp.proxy.spi.BaseRdpStore;
 import rdp.proxy.spi.RdpSetting;
+import rdp.proxy.spi.RdpStore;
+import rdp.proxy.spi.config.ConfigUtil;
 import spark.Service;
 
 @SuppressWarnings("unchecked")
@@ -31,14 +33,15 @@ public class Utils {
     if (rdpProxySetupClassname == null) {
       return RdpProxyServiceSetup.INSTANCE;
     }
-    Class<? extends RdpProxyServiceSetup> clazz = (Class<? extends RdpProxyServiceSetup>) Class.forName(rdpProxySetupClassname);
+    Class<? extends RdpProxyServiceSetup> clazz = (Class<? extends RdpProxyServiceSetup>) Class.forName(
+        rdpProxySetupClassname);
     return clazz.newInstance();
   }
 
   public static RdpStore getRdpMetaStore(RdpProxyConfig config) throws Exception {
     String rdpMetaStoreClassname = config.getRdpMetaStoreClassname();
     if (rdpMetaStoreClassname == null) {
-      return RdpStore.INSTANCE;
+      return BaseRdpStore.INSTANCE;
     }
     Class<? extends RdpStore> clazz = (Class<? extends RdpStore>) Class.forName(rdpMetaStoreClassname);
     return clazz.newInstance();
@@ -46,11 +49,11 @@ public class Utils {
 
   public static RdpProxyConfig getConfig() {
     RdpProxyConfigBuilder builder = RdpProxyConfig.builder();
-    loadProperty(RDP_PORT, value -> builder.rdpPort(Integer.parseInt(value)));
-    loadProperty(RDP_HTTP_PORT, value -> builder.rdpHttpPort(Integer.parseInt(value)));
-    loadProperty(RDP_BIND_ADDRESS, value -> builder.rdpBindAddress(value));
-    loadProperty(RDP_HTTP_BIND_ADDRESS, value -> builder.rdpHttpBindAddress(value));
-    loadProperty(RDP_HOSTNAME_ADVERTISED, value -> builder.rdpHostnameAdvertised(value));
+    builder.rdpPort(ConfigUtil.loadProperty(RDP_PORT, value -> Integer.parseInt(value)));
+    builder.rdpHttpPort(ConfigUtil.loadProperty(RDP_HTTP_PORT, value -> Integer.parseInt(value)));
+    builder.rdpBindAddress(ConfigUtil.loadProperty(RDP_BIND_ADDRESS, value -> value));
+    builder.rdpHttpBindAddress(ConfigUtil.loadProperty(RDP_HTTP_BIND_ADDRESS, value -> value));
+    builder.rdpHostnameAdvertised(ConfigUtil.loadProperty(RDP_HOSTNAME_ADVERTISED, value -> value));
     return builder.build();
   }
 
@@ -78,22 +81,4 @@ public class Utils {
     return builder.build();
   }
 
-  private static void loadProperty(String name, Loader loader) {
-    String value = getProperty(name);
-    if (value != null) {
-      loader.load(value);
-    }
-  }
-
-  private static String getProperty(String name) {
-    String property = System.getProperty(name);
-    if (property != null) {
-      return property;
-    }
-    return System.getenv(name);
-  }
-
-  private static interface Loader {
-    void load(String value);
-  }
 }

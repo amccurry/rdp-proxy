@@ -25,8 +25,6 @@ public class RdpConnectionRelay {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(RdpConnectionRelay.class);
 
-  private static final String MSTSHASH = "mstshash";
-
   private final ServerSocket _ss;
   private final AtomicBoolean _running = new AtomicBoolean(true);
   private final ExecutorService _service;
@@ -82,16 +80,10 @@ public class RdpConnectionRelay {
         if (message == null) {
           return;
         }
-        ConnectionInfo connectionInfo;
         LOGGER.info("Socket {} find cookie", socket);
         String cookie = findCookie(message);
-        if (isCookie(cookie)) {
-          LOGGER.info("Socket {} cookie found", socket);
-          connectionInfo = _store.startRdpSessionIfMissingWithCookie(cookie);
-        } else {
-          LOGGER.info("Socket {} loadbalanceinfo found", socket);
-          connectionInfo = _store.startRdpSessionIfMissingWithId(cookie);
-        }
+        ConnectionInfo connectionInfo = _store.getConnectionInfoWithCookie(cookie);
+        LOGGER.info("Socket {} connectionInfo {} with cookie {} found", socket, connectionInfo, cookie);
 
         if (connectionInfo == null) {
           LOGGER.info("Socket {} connection info for cookie {} did not find a remote connection, hang up", socket,
@@ -145,10 +137,6 @@ public class RdpConnectionRelay {
     return false;
   }
 
-  private boolean isCookie(String cookie) {
-    return cookie.contains(MSTSHASH);
-  }
-
   private Future<Void> startRelay(AtomicBoolean alive, InputStream input, OutputStream output) {
     return _service.submit(() -> {
       byte[] buf = new byte[_bufferSize];
@@ -190,7 +178,7 @@ public class RdpConnectionRelay {
     if (len == buf.length) {
       return buf;
     }
-    LOGGER.error("Length len {} does not match buffer length {}", len, buf.length);
+    LOGGER.error("Length len {} does not match buffer length {}, hang up", len, buf.length);
     return null;
   }
 

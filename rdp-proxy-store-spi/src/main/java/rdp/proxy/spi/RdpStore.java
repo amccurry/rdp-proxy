@@ -1,41 +1,61 @@
 package rdp.proxy.spi;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.util.ArrayList;
 import java.util.List;
 
 public interface RdpStore {
 
-  public static final String COOKIE_MSTSHASH = "Cookie: mstshash=";
-  
-  public RdpStore INSTANCE = new RdpStore() {
-  };
+  /**
+   * Is used to validate the given user is valid before responding with rdp
+   * information.
+   * 
+   * @param user
+   * @return boolean
+   * @throws IOException
+   */
+  boolean isValidUser(String user) throws IOException;
 
-  default boolean isValidUser(String user) throws IOException {
-    return true;
-  }
+  /**
+   * Get the loadBalanceInfo attribute for a rdp file sent to a client.
+   * 
+   * @param user
+   * @return string
+   * @throws IOException
+   */
+  String getLoadBalanceInfo(String user) throws IOException;
 
-  default List<RdpSetting> getRdpSettings(List<RdpSetting> defaultSettings, String user, String id, String rdpHostname,
-      int rdpPort) throws IOException {
-    return new ArrayList<>(defaultSettings);
-  }
+  /**
+   * This call calculates the rdp attributes to be sent to the client via the
+   * rdp file.
+   * 
+   * @param defaultSettings
+   * @param user
+   * @param loadBalanceInfo
+   * @param rdpHostname
+   * @param rdpPort
+   * @return list
+   * @throws IOException
+   */
+  List<RdpSetting> getRdpSettings(List<RdpSetting> defaultSettings, String user, String loadBalanceInfo,
+      String rdpHostname, int rdpPort) throws IOException;
 
-  default String getLoadBalanceInfo(String user) throws IOException {
-    return user;
-  }
+  /**
+   * The rdp filename at download.
+   * 
+   * @param user
+   * @return string
+   * @throws IOException
+   */
+  String getFilename(String user) throws IOException;
 
-  default String getFilename(String user) throws IOException {
-    return user.replace('.', '-') + ".rdp";
-  }
-
-  default ConnectionInfo startRdpSessionIfMissingWithId(String id) throws IOException {
-    return new ConnectionInfo(InetAddress.getByName(id), 3389);
-  }
-
-  default ConnectionInfo startRdpSessionIfMissingWithCookie(String cookie) throws IOException {
-    String host = cookie.replace(COOKIE_MSTSHASH, "");
-    return new ConnectionInfo(InetAddress.getByName(host), 3389);
-  }
+  /**
+   * Gets the connection info given the rdp connection rdp, should contain the
+   * loadBalanceInfo attribute.
+   * 
+   * @param cookie
+   * @return
+   * @throws IOException
+   */
+  ConnectionInfo getConnectionInfoWithCookie(String cookie) throws IOException;
 
 }

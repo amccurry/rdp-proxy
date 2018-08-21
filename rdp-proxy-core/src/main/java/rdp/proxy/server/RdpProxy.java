@@ -79,9 +79,9 @@ public class RdpProxy implements Closeable {
       if (!_store.isValidUser(user)) {
         _service.halt(404);
       }
-      String id = _store.getLoadBalanceInfo(user);
+      String loadBalanceInfo = _store.getLoadBalanceInfo(user);
 
-      List<RdpSetting> rdpSettings = _store.getRdpSettings(defaultSettings, user, id, _hostnameAdvertised, _rdpPort);
+      List<RdpSetting> rdpSettings = _store.getRdpSettings(defaultSettings, user, loadBalanceInfo, _hostnameAdvertised, _rdpPort);
       Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
 
       // full address:s:localhost:3389
@@ -91,7 +91,7 @@ public class RdpProxy implements Closeable {
       addIfMissing(rdpSettingsMap, RdpSetting.create(USERNAME, user));
 
       // loadbalanceinfo:s:
-      addIfMissing(rdpSettingsMap, RdpSetting.create(LOADBALANCEINFO, id));
+      addIfMissing(rdpSettingsMap, RdpSetting.create(LOADBALANCEINFO, loadBalanceInfo));
 
       String filename = _store.getFilename(user);
       response.header(CONTENT_TYPE, "application/rdp; charset=utf-8");
