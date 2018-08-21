@@ -185,21 +185,25 @@ public class RdpConnectionRelay {
       LOGGER.error("Unknown client, hang up");
       return null;
     }
-
+    
+    // read reserve
+    int reserve = dataInput.readUnsignedByte();
+    
     int len = dataInput.readUnsignedShort();
-    byte[] buf = new byte[len - 3];
+    byte[] buf = new byte[len - 4];
     dataInput.readFully(buf);
 
-    if (buf.length + 3 != len) {
-      LOGGER.error("Length len {} does not match buffer length {}, hang up", len, buf.length);
+    if (buf.length + 4 != len) {
+      LOGGER.error("Length len {} does not match buffer length {}, hang up", len, buf.length + 4);
       return null;
     }
 
-    byte[] result = new byte[len + 3];
+    byte[] result = new byte[len];
     result[0] = (byte) tpktVersion;
-    putShort(result, 1, (short) len);
-    System.arraycopy(buf, 0, result, 3, buf.length);
-    return buf;
+    result[1] = (byte) reserve;
+    putShort(result, 2, (short) len);
+    System.arraycopy(buf, 0, result, 4, buf.length);
+    return result;
   }
 
   public static short getShort(byte[] b, int off) {
