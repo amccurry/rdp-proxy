@@ -3,7 +3,10 @@ package rdp.proxy.spi;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public abstract class BaseRdpStore implements RdpStore {
   public static final String COOKIE_MSTSHASH = "Cookie: mstshash=";
@@ -33,12 +36,24 @@ public abstract class BaseRdpStore implements RdpStore {
   }
 
   @Override
-  public ConnectionInfo getConnectionInfoWithCookie(String cookie) throws IOException {
-    if (cookie.contains(COOKIE_MSTSHASH)) {
-      String host = cookie.replace(COOKIE_MSTSHASH, "");
-      return new ConnectionInfo(InetAddress.getByName(host), 3389);
+  public Set<ConnectionInfo> getConnectionInfoWithCookie(String cookie) throws IOException {
+    if (isCookieMstsHash(cookie)) {
+      String host = getLoadBaclanceInfo(cookie);
+      return toSet(new ConnectionInfo(InetAddress.getByName(host), 3389));
     } else {
-      return new ConnectionInfo(InetAddress.getByName(cookie), 3389);
+      return toSet(new ConnectionInfo(InetAddress.getByName(cookie), 3389));
     }
+  }
+
+  protected static String getLoadBaclanceInfo(String cookie) {
+    return cookie.replace(COOKIE_MSTSHASH, "");
+  }
+
+  protected static boolean isCookieMstsHash(String cookie) {
+    return cookie.contains(COOKIE_MSTSHASH);
+  }
+
+  private Set<ConnectionInfo> toSet(ConnectionInfo connectionInfo) {
+    return new HashSet<>(Arrays.asList(connectionInfo));
   }
 }

@@ -2,6 +2,7 @@ package rdp.proxy.spi;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 public interface RdpStore {
 
@@ -56,6 +57,6 @@ public interface RdpStore {
    * @return
    * @throws IOException
    */
-  ConnectionInfo getConnectionInfoWithCookie(String cookie) throws IOException;
+  Set<ConnectionInfo> getConnectionInfoWithCookie(String cookie) throws IOException;
 
 }

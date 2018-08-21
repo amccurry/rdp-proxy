@@ -8,6 +8,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -82,23 +83,18 @@ public class RdpConnectionRelay {
         }
         LOGGER.info("Socket {} find cookie", socket);
         String cookie = findCookie(message);
-        ConnectionInfo connectionInfo = _store.getConnectionInfoWithCookie(cookie);
-        LOGGER.info("Socket {} connectionInfo {} with cookie {} found", socket, connectionInfo, cookie);
+        Set<ConnectionInfo> connectionInfoSet = _store.getConnectionInfoWithCookie(cookie);
+        LOGGER.info("Socket {} connectionInfo {} with cookie {} found", socket, connectionInfoSet, cookie);
 
-        if (connectionInfo == null) {
+        if (connectionInfoSet == null || connectionInfoSet.isEmpty()) {
           LOGGER.info("Socket {} connection info for cookie {} did not find a remote connection, hang up", socket,
               cookie);
           return;
         }
 
-        LOGGER.info("Connection info {} for cookie {} for remote socket", connectionInfo, cookie, socket);
+        LOGGER.info("Connection info {} for cookie {} for remote socket", connectionInfoSet, cookie, socket);
 
-        try (Socket rdpServer = new Socket(connectionInfo.getProxy())) {
-          rdpServer.setTcpNoDelay(true);
-          SocketAddress _endpoint = new InetSocketAddress(connectionInfo.getAddress(), connectionInfo.getPort());
-          rdpServer.connect(_endpoint, _remoteRdpTcpTimeout);
-          rdpServer.setSoTimeout(_soTimeout);
-          rdpServer.setKeepAlive(true);
+        try (Socket rdpServer = createConnection(connectionInfoSet)) {
           try (InputStream rsInput = rdpServer.getInputStream(); OutputStream rsOutput = rdpServer.getOutputStream()) {
             rsOutput.write(message);
             rsOutput.flush();
@@ -118,6 +114,24 @@ public class RdpConnectionRelay {
         }
       }
     }
+  }
+
+  private Socket createConnection(Set<ConnectionInfo> connectionInfoSet) throws IOException {
+    for (ConnectionInfo connectionInfo : connectionInfoSet) {
+      Socket rdpServer = new Socket(connectionInfo.getProxy());
+      rdpServer.setTcpNoDelay(true);
+      rdpServer.setSoTimeout(_soTimeout);
+      rdpServer.setKeepAlive(true);
+      SocketAddress _endpoint = new InetSocketAddress(connectionInfo.getAddress(), connectionInfo.getPort());
+      try {
+        rdpServer.connect(_endpoint, _remoteRdpTcpTimeout);
+        return rdpServer;
+      } catch (Exception e) {
+        LOGGER.error("Could not connect to {}", connectionInfo);
+        LOGGER.error("Connection execption", e);
+      }
+    }
+    throw new IOException("None of the connectionInfos " + connectionInfoSet + " successfully connected");
   }
 
   private boolean shouldCloseConnection(Future<Void> f1, Future<Void> f2, Socket rdpServerSocket,
