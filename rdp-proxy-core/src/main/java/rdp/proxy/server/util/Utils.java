@@ -21,12 +21,19 @@ import spark.Service;
 @SuppressWarnings("unchecked")
 public class Utils {
 
-  private static final String RDP_HTTP_BIND_ADDRESS = "RDP_HTTP_BIND_ADDRESS";
+  public static final String RDP_SO_TIMEOUT = "RDP_SO_TIMEOUT";
+  public static final String RDP_REMOTE_TCP_TIMEOUT = "RDP_REMOTE_TCP_TIMEOUT";
+  public static final String RDP_RELAY_BUFFER_SIZE = "RDP_RELAY_BUFFER_SIZE";
+  public static final String RDP_BACKLOG = "RDP_BACKLOG";
+  public static final String RDP_PROXY_SETUP_CLASSNAME = "RDP_PROXY_SETUP_CLASSNAME";
+  public static final String RDP_META_STORE_CLASSNAME = "RDP_META_STORE_CLASSNAME";
+  public static final String RDP_HTTP_BIND_ADDRESS = "RDP_HTTP_BIND_ADDRESS";
+  public static final String RDP_HOSTNAME_ADVERTISED = "RDP_HOSTNAME_ADVERTISED";
+  public static final String RDP_BIND_ADDRESS = "RDP_BIND_ADDRESS";
+  public static final String RDP_HTTP_PORT = "RDP_HTTP_PORT";
+  public static final String RDP_PORT = "RDP_PORT";
+
   private static final String DEFAULT_RDP = "/default.rdp";
-  private static final String RDP_HOSTNAME_ADVERTISED = "RDP_HOSTNAME_ADVERTISED";
-  private static final String RDP_BIND_ADDRESS = "RDP_BIND_ADDRESS";
-  private static final String RDP_HTTP_PORT = "RDP_HTTP_PORT";
-  private static final String RDP_PORT = "RDP_PORT";
 
   public static RdpProxyServiceSetup getRdpProxySetup(RdpProxyConfig config) throws Exception {
     String rdpProxySetupClassname = config.getRdpProxySetupClassname();
@@ -54,6 +61,14 @@ public class Utils {
     builder.rdpBindAddress(ConfigUtil.loadProperty(RDP_BIND_ADDRESS, value -> value));
     builder.rdpHttpBindAddress(ConfigUtil.loadProperty(RDP_HTTP_BIND_ADDRESS, value -> value));
     builder.rdpHostnameAdvertised(ConfigUtil.loadProperty(RDP_HOSTNAME_ADVERTISED, value -> value));
+
+    builder.rdpProxySetupClassname(ConfigUtil.loadProperty(RDP_PROXY_SETUP_CLASSNAME, value -> value));
+    builder.rdpMetaStoreClassname(ConfigUtil.loadProperty(RDP_META_STORE_CLASSNAME, value -> value));
+    builder.rdpBacklog(ConfigUtil.loadProperty(RDP_BACKLOG, value -> Integer.parseInt(value)));
+    builder.rdpRelayBufferSize(ConfigUtil.loadProperty(RDP_RELAY_BUFFER_SIZE, value -> Integer.parseInt(value)));
+    builder.rdpRemoteTcpTimeout(ConfigUtil.loadProperty(RDP_REMOTE_TCP_TIMEOUT, value -> Integer.parseInt(value)));
+    builder.rdpSoTimeout(ConfigUtil.loadProperty(RDP_SO_TIMEOUT, value -> Integer.parseInt(value)));
+
     return builder.build();
   }
 
