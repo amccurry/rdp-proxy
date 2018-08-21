@@ -177,7 +177,10 @@ public class RdpConnectionRelay {
 
   private byte[] readFirstMessage(InputStream input) throws IOException {
     DataInputStream dataInput = new DataInputStream(input);
-    int tpktVersion = dataInput.readUnsignedByte();
+    int tpktVersion = dataInput.read();
+    if (tpktVersion == -1) {
+      return null;
+    }
     if (tpktVersion != 3) {
       LOGGER.error("Unknown client, hang up");
       return null;

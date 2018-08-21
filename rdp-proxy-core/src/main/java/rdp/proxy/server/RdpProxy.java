@@ -71,7 +71,11 @@ public class RdpProxy implements Closeable {
       List<RdpSetting> rdpSettings = _store.getRdpSettings(defaultSettings, user, loadBalanceInfo, _hostnameAdvertised,
           _rdpPort);
       Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
+      
+      addIfMissing(rdpSettingsMap, RdpSetting.create(FULL_ADDRESS, _hostnameAdvertised + ":" + _rdpPort));
+      
       RdpSetting fullAddress = rdpSettingsMap.get(FULL_ADDRESS);
+      
 
       return RdpInfoResponse.builder()
                             .user(user)
