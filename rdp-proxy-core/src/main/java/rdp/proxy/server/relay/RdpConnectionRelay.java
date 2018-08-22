@@ -62,7 +62,7 @@ public class RdpConnectionRelay {
       _service.submit(() -> {
         try {
           handleNewConnection(socket);
-          LOGGER.info("Socket {} closed", socket);
+          LOGGER.debug("Socket {} closed", socket);
         } catch (Throwable t) {
           LOGGER.error("Unknown error, during new connection setup", t);
         }
