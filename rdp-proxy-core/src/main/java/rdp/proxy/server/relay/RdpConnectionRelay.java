@@ -72,12 +72,12 @@ public class RdpConnectionRelay {
 
   private void handleNewConnection(Socket s) throws Exception {
     try (Socket socket = s) {
-      LOGGER.info("Socket {} new connection", socket);
+      LOGGER.debug("Socket {} new connection", socket);
       socket.setTcpNoDelay(true);
       socket.setSoTimeout(_soTimeout);
       socket.setKeepAlive(true);
       try (InputStream rcInput = socket.getInputStream(); OutputStream rcOutput = socket.getOutputStream()) {
-        LOGGER.info("Socket {} read first message", socket);
+        LOGGER.debug("Socket {} read first message", socket);
         byte[] message = readFirstMessage(rcInput);
         if (message == null) {
           return;
