@@ -20,5 +20,20 @@
 			<groupId>rdp-proxy</groupId>
 			<artifactId>rdp-proxy-service-spi</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>io.dropwizard.metrics</groupId>
+			<artifactId>metrics-core</artifactId>
+			<version>4.0.3</version>
+		</dependency>
+		<dependency>
+			<groupId>io.dropwizard.metrics</groupId>
+			<artifactId>metrics-json</artifactId>
+			<version>4.0.3</version>
+		</dependency>
+		<dependency>
+			<groupId>io.dropwizard.metrics</groupId>
+			<artifactId>metrics-jvm</artifactId>
+			<version>4.0.3</version>
+		</dependency>
 	</dependencies>
 </project>

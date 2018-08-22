@@ -21,16 +21,18 @@ import spark.Service;
 @SuppressWarnings("unchecked")
 public class Utils {
 
+  public static final String RDP_GATEWAY_HTTP_BIND_ADDRESS = "RDP_GATEWAY_HTTP_BIND_ADDRESS";
+  public static final String RDP_ADMIN_HTTP_PORT = "RDP_ADMIN_HTTP_PORT";
+  public static final String RDP_GATEWAY_HTTP_PORT = "RDP_GATEWAY_HTTP_PORT";
+  public static final String RDP_ADMIN_HTTP_BIND_ADDRESS = "RDP_ADMIN_HTTP_BIND_ADDRESS";
   public static final String RDP_SO_TIMEOUT = "RDP_SO_TIMEOUT";
   public static final String RDP_REMOTE_TCP_TIMEOUT = "RDP_REMOTE_TCP_TIMEOUT";
   public static final String RDP_RELAY_BUFFER_SIZE = "RDP_RELAY_BUFFER_SIZE";
   public static final String RDP_BACKLOG = "RDP_BACKLOG";
   public static final String RDP_PROXY_SETUP_CLASSNAME = "RDP_PROXY_SETUP_CLASSNAME";
   public static final String RDP_META_STORE_CLASSNAME = "RDP_META_STORE_CLASSNAME";
-  public static final String RDP_HTTP_BIND_ADDRESS = "RDP_HTTP_BIND_ADDRESS";
   public static final String RDP_HOSTNAME_ADVERTISED = "RDP_HOSTNAME_ADVERTISED";
   public static final String RDP_BIND_ADDRESS = "RDP_BIND_ADDRESS";
-  public static final String RDP_HTTP_PORT = "RDP_HTTP_PORT";
   public static final String RDP_PORT = "RDP_PORT";
 
   private static final String DEFAULT_RDP = "/default.rdp";
@@ -56,17 +58,10 @@ public class Utils {
 
   public static RdpProxyConfig getConfig() {
     RdpProxyConfigBuilder builder = RdpProxyConfig.builder();
-
     {
       Integer prop = ConfigUtil.loadProperty(RDP_PORT, value -> Integer.parseInt(value));
       if (prop != null) {
         builder.rdpPort(prop);
-      }
-    }
-    {
-      Integer prop = ConfigUtil.loadProperty(RDP_HTTP_PORT, value -> Integer.parseInt(value));
-      if (prop != null) {
-        builder.rdpHttpPort(prop);
       }
     }
     {
@@ -76,9 +71,28 @@ public class Utils {
       }
     }
     {
-      String prop = ConfigUtil.loadProperty(RDP_HTTP_BIND_ADDRESS, value -> value);
+      Integer prop = ConfigUtil.loadProperty(RDP_GATEWAY_HTTP_PORT, value -> Integer.parseInt(value));
       if (prop != null) {
-        builder.rdpHttpBindAddress(prop);
+        builder.rdpGatewayHttpPort(prop);
+      }
+    }
+    {
+      Integer prop = ConfigUtil.loadProperty(RDP_ADMIN_HTTP_PORT, value -> Integer.parseInt(value));
+      if (prop != null) {
+        builder.rdpAdminHttpPort(prop);
+      }
+    }
+
+    {
+      String prop = ConfigUtil.loadProperty(RDP_GATEWAY_HTTP_BIND_ADDRESS, value -> value);
+      if (prop != null) {
+        builder.rdpGatewayHttpBindAddress(prop);
+      }
+    }
+    {
+      String prop = ConfigUtil.loadProperty(RDP_ADMIN_HTTP_BIND_ADDRESS, value -> value);
+      if (prop != null) {
+        builder.rdpAdminHttpBindAddress(prop);
       }
     }
     {
@@ -127,12 +141,21 @@ public class Utils {
     return builder.build();
   }
 
-  public static Service igniteService(RdpProxyConfig config) throws Exception {
+  public static Service igniteGatewayService(RdpProxyConfig config) throws Exception {
     RdpProxyServiceSetup setup = getRdpProxySetup(config);
     Service service = Service.ignite();
-    service.port(config.getRdpHttpPort());
-    service.ipAddress(config.getRdpHttpBindAddress());
-    setup.serviceSetup(service);
+    service.port(config.getRdpGatewayHttpPort());
+    service.ipAddress(config.getRdpGatewayHttpBindAddress());
+    setup.serviceGatewaySetup(service);
+    return service;
+  }
+
+  public static Service igniteAdminService(RdpProxyConfig config) throws Exception {
+    RdpProxyServiceSetup setup = getRdpProxySetup(config);
+    Service service = Service.ignite();
+    service.port(config.getRdpAdminHttpPort());
+    service.ipAddress(config.getRdpAdminHttpBindAddress());
+    setup.serviceAdminSetup(service);
     return service;
   }
 

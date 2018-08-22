@@ -6,15 +6,19 @@ import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import javax.servlet.http.HttpServletResponse;
 
+import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import rdp.proxy.server.metrics.JsonReporter;
+import rdp.proxy.server.metrics.SetupJvmMetrics;
 import rdp.proxy.server.relay.RdpConnectionRelay;
 import rdp.proxy.server.util.Utils;
-import rdp.proxy.spi.RdpStore;
 import rdp.proxy.spi.RdpSetting;
+import rdp.proxy.spi.RdpStore;
 import spark.ResponseTransformer;
 import spark.Route;
 import spark.Service;
@@ -33,37 +37,50 @@ public class RdpProxy implements Closeable {
   public static void main(String[] args) throws Exception {
     RdpProxyConfig config = Utils.getConfig();
     try (RdpProxy proxy = new RdpProxy(config)) {
-      proxy.init();
+      proxy.initGateway();
+      proxy.initAdmin();
       proxy.join();
     }
   }
 
-  private final Service _service;
+  private final Service _gatewayService;
   private final RdpStore _store;
   private final RdpProxyConfig _config;
   private final String _hostnameAdvertised;
   private final int _rdpPort;
   private final RdpConnectionRelay _relay;
+  private final Service _adminService;
+  private final MetricRegistry _metrics = new MetricRegistry();
+  private final JsonReporter _reporter;
 
   public RdpProxy(RdpProxyConfig config) throws Exception {
     _config = config;
     _hostnameAdvertised = config.getRdpHostname();
     _rdpPort = _config.getRdpPort();
-    _service = Utils.igniteService(config);
+    _gatewayService = Utils.igniteGatewayService(config);
+    _adminService = Utils.igniteAdminService(config);
     _store = Utils.getRdpMetaStore(config);
-    _relay = new RdpConnectionRelay(_config, _store);
+    _reporter = new JsonReporter(_metrics);
+    _reporter.start(5, TimeUnit.SECONDS);
+    _relay = new RdpConnectionRelay(_config, _store, _metrics);
+    SetupJvmMetrics.setup(_metrics);
   }
 
   public void join() throws InterruptedException {
     _relay.exec();
   }
 
-  public void init() throws IOException {
+  public void initAdmin() {
+    ResponseTransformer jsonTransformer = model -> new ObjectMapper().writeValueAsString(model);
+    _adminService.get("/stats", (Route) (request, response) -> _reporter.getReport(), jsonTransformer);
+  }
+
+  public void initGateway() throws IOException {
     List<RdpSetting> defaultSettings = Utils.getRdpDefaults();
     Route infoRoute = (Route) (request, response) -> {
       String user = request.params("user");
       if (!_store.isValidUser(user)) {
-        _service.halt(404);
+        _gatewayService.halt(404);
       }
 
       String loadBalanceInfo = _store.getLoadBalanceInfo(user);
@@ -71,11 +88,10 @@ public class RdpProxy implements Closeable {
       List<RdpSetting> rdpSettings = _store.getRdpSettings(defaultSettings, user, loadBalanceInfo, _hostnameAdvertised,
           _rdpPort);
       Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
-      
+
       addIfMissing(rdpSettingsMap, RdpSetting.create(FULL_ADDRESS, _hostnameAdvertised + ":" + _rdpPort));
-      
+
       RdpSetting fullAddress = rdpSettingsMap.get(FULL_ADDRESS);
-      
 
       return RdpInfoResponse.builder()
                             .user(user)
@@ -88,7 +104,7 @@ public class RdpProxy implements Closeable {
     Route rdpFileRoute = (request, response) -> {
       String user = request.params("user");
       if (!_store.isValidUser(user)) {
-        _service.halt(404);
+        _gatewayService.halt(404);
       }
       String loadBalanceInfo = _store.getLoadBalanceInfo(user);
 
@@ -117,14 +133,14 @@ public class RdpProxy implements Closeable {
       return null;
     };
 
-    _service.get("/rdp-info/:user", infoRoute);
-    _service.get("/rdp-json/:user", infoRoute, JSON_TRANSFORMER);
-    _service.get("/rdp-file/:user", rdpFileRoute);
+    _gatewayService.get("/rdp-info/:user", infoRoute);
+    _gatewayService.get("/rdp-json/:user", infoRoute, JSON_TRANSFORMER);
+    _gatewayService.get("/rdp-file/:user", rdpFileRoute);
   }
 
   @Override
   public void close() throws IOException {
-    _service.stop();
+    _gatewayService.stop();
   }
 
   private void addIfMissing(Map<String, RdpSetting> rdpSettingsMap, RdpSetting setting) {

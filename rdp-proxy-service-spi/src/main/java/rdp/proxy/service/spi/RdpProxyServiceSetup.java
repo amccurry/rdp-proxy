@@ -7,7 +7,11 @@ public interface RdpProxyServiceSetup {
   public static RdpProxyServiceSetup INSTANCE = new RdpProxyServiceSetup() {
   };
 
-  default void serviceSetup(Service service) {
+  default void serviceGatewaySetup(Service service) {
+
+  }
+
+  default void serviceAdminSetup(Service service) {
 
   }
 

@@ -19,6 +19,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
+
 import rdp.proxy.server.RdpProxyConfig;
 import rdp.proxy.spi.ConnectionInfo;
 import rdp.proxy.spi.RdpStore;
@@ -27,6 +30,8 @@ public class RdpConnectionRelay {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(RdpConnectionRelay.class);
 
+  private static final String RDP_CONNECTIONS = "rdp.connections";
+  
   private final ServerSocket _ss;
   private final AtomicBoolean _running = new AtomicBoolean(true);
   private final ExecutorService _service;
@@ -35,8 +40,9 @@ public class RdpConnectionRelay {
   private final long _relayCheckTime = TimeUnit.SECONDS.toMillis(1);
   private final int _remoteRdpTcpTimeout;
   private final int _soTimeout;
+  private final Counter _connections;
 
-  public RdpConnectionRelay(RdpProxyConfig config, RdpStore store) throws IOException {
+  public RdpConnectionRelay(RdpProxyConfig config, RdpStore store, MetricRegistry metrics) throws IOException {
     _bufferSize = config.getRdpRelayBufferSize();
     _remoteRdpTcpTimeout = config.getRdpRemoteTcpTimeout();
     _soTimeout = config.getRdpSoTimeout();
@@ -48,6 +54,7 @@ public class RdpConnectionRelay {
     InetAddress bindAddr = InetAddress.getByName(bindAddress);
     _ss = new ServerSocket(port, backlog, bindAddr);
     _service = Executors.newCachedThreadPool();
+    _connections = metrics.counter(RDP_CONNECTIONS);
   }
 
   public void exec() {
@@ -71,6 +78,7 @@ public class RdpConnectionRelay {
   }
 
   private void handleNewConnection(Socket s) throws Exception {
+    _connections.inc();
     try (Socket socket = s) {
       LOGGER.debug("Socket {} new connection", socket);
       socket.setTcpNoDelay(true);
@@ -114,6 +122,8 @@ public class RdpConnectionRelay {
           }
         }
       }
+    } finally {
+      _connections.dec();
     }
   }
 
@@ -185,10 +195,10 @@ public class RdpConnectionRelay {
       LOGGER.error("Unknown client, hang up");
       return null;
     }
-    
+
     // read reserve
     int reserve = dataInput.readUnsignedByte();
-    
+
     int len = dataInput.readUnsignedShort();
     byte[] buf = new byte[len - 4];
     dataInput.readFully(buf);

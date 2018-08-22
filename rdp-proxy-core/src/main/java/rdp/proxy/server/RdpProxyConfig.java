@@ -21,10 +21,16 @@ public class RdpProxyConfig {
   String rdpBindAddress = "0.0.0.0";
 
   @Default
-  int rdpHttpPort = 5000;
+  int rdpGatewayHttpPort = 5000;
 
   @Default
-  String rdpHttpBindAddress = "0.0.0.0";
+  String rdpGatewayHttpBindAddress = "0.0.0.0";
+  
+  @Default
+  int rdpAdminHttpPort = 5001;
+
+  @Default
+  String rdpAdminHttpBindAddress = "0.0.0.0";
 
   String rdpHostnameAdvertised;
 
