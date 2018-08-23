@@ -1,14 +1,17 @@
 package rdp.proxy.server.util;
 
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.ServerSocket;
 import java.util.List;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 
+import lombok.extern.java.Log;
 import rdp.proxy.server.RdpProxyConfig;
 import rdp.proxy.server.RdpProxyConfig.RdpProxyConfigBuilder;
 import rdp.proxy.service.spi.RdpProxyServiceSetup;
@@ -172,6 +175,16 @@ public class Utils {
       }
     }
     return builder.build();
+  }
+
+  public static void closeQuietly(Closeable closeable) {
+    if (closeable != null) {
+      try {
+        closeable.close();
+      } catch (IOException e) {
+
+      }
+    }
   }
 
 }

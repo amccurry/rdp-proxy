@@ -4,11 +4,11 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
 import javax.servlet.http.HttpServletResponse;
@@ -16,15 +16,18 @@ import javax.servlet.http.HttpServletResponse;
 import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import rdp.proxy.server.admin.ConnectionInfoAdminPage;
+import rdp.proxy.server.admin.ConnectionInfoAdminPage.ConnectionInfoAdminPageBuilder;
 import rdp.proxy.server.metrics.JsonCounter;
-import rdp.proxy.server.metrics.JsonGauge;
 import rdp.proxy.server.metrics.JsonHistogram;
 import rdp.proxy.server.metrics.JsonMeter;
 import rdp.proxy.server.metrics.JsonReport;
 import rdp.proxy.server.metrics.JsonReporter;
 import rdp.proxy.server.metrics.JsonTimer;
 import rdp.proxy.server.metrics.SetupJvmMetrics;
+import rdp.proxy.server.relay.ConnectionProxyInstance;
 import rdp.proxy.server.relay.RdpConnectionRelay;
+import rdp.proxy.server.relay.SocketInfo;
 import rdp.proxy.server.util.Utils;
 import rdp.proxy.spi.RdpSetting;
 import rdp.proxy.spi.RdpStore;
@@ -36,7 +39,6 @@ import spark.template.freemarker.FreeMarkerEngine;
 
 public class RdpProxy implements Closeable {
 
-  private static final String RDP_COUNTERS = "rdpCounters";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String CONTENT_DISPOSITION = "Content-Disposition";
   private static final String CONTENT_TYPE = "Content-Type";
@@ -47,11 +49,15 @@ public class RdpProxy implements Closeable {
       model);
 
   public static void main(String[] args) throws Exception {
+    Object lock = new Object();
     RdpProxyConfig config = Utils.getConfig();
-    try (RdpProxy proxy = new RdpProxy(config)) {
-      proxy.initGateway();
-      proxy.initAdmin();
-      proxy.join();
+    synchronized (lock) {
+      try (RdpProxy proxy = new RdpProxy(config)) {
+        proxy.initGateway();
+        proxy.initAdmin();
+        proxy.start();
+        lock.wait();
+      }
     }
   }
 
@@ -73,41 +79,121 @@ public class RdpProxy implements Closeable {
     _adminService = Utils.igniteAdminService(config);
     _store = Utils.getRdpMetaStore(config);
     _reporter = new JsonReporter(_metrics);
-    _reporter.start(5, TimeUnit.SECONDS);
+    _reporter.start(0, 5, TimeUnit.SECONDS);
     _relay = new RdpConnectionRelay(_config, _store, _metrics);
     SetupJvmMetrics.setup(_metrics);
   }
 
-  public void join() throws InterruptedException {
-    _relay.exec();
+  public boolean isListening() {
+    return _relay.isListening();
+  }
+
+  public void start() {
+    _relay.startListening();
   }
 
   public void initAdmin() {
     ResponseTransformer jsonTransformer = model -> new ObjectMapper().writeValueAsString(model);
     _adminService.get("/stats", (Route) (request, response) -> _reporter.getReport(), jsonTransformer);
+    _adminService.post("/kill/:id", (request, response) -> {
+      String id = request.params("id");
+      _relay.kill(id);
+      response.redirect("/");
+      return null;
+    });
+    _adminService.post("/listen/enable", (request, response) -> {
+      _relay.startListening();
+      response.redirect("/");
+      return null;
+    });
+    _adminService.post("/listen/disable", (request, response) -> {
+      _relay.stopListening();
+      response.redirect("/");
+      return null;
+    });
     _adminService.get("/", (request, response) -> {
-
       Map<String, Object> attributes = new HashMap<>();
-      Map<String, JsonCounter> rdpCounters = new TreeMap<>();
-      attributes.put(RDP_COUNTERS, rdpCounters);
-
       JsonReport jsonReport = _reporter.getReport();
+      Map<String, JsonHistogram> histograms = jsonReport.getHistograms();
+
+      JsonHistogram heapUsedHistogram = histograms.get("jvm.heap.used.histogram");
+      attributes.put("heapUsedHistogramMean", heapUsedHistogram == null ? 0 : (long) heapUsedHistogram.getMean());
+
+      JsonHistogram heapMaxHistogram = histograms.get("jvm.heap.max.histogram");
+      attributes.put("heapMaxHistogramMean", heapMaxHistogram == null ? 0 : (long) heapMaxHistogram.getMean());
 
       Map<String, JsonCounter> counters = jsonReport.getCounters();
-      Map<String, JsonGauge> gauges = jsonReport.getGauges();
-      Map<String, JsonHistogram> histograms = jsonReport.getHistograms();
-      Map<String, JsonMeter> meters = jsonReport.getMeters();
-      Map<String, JsonTimer> timers = jsonReport.getTimers();
+      JsonCounter counter = counters.get(RdpConnectionRelay.RDP_CONNECTIONS_COUNTER);
+      attributes.put("connectionCount", counter == null ? 0 : counter.getCount());
 
-      if (counters != null) {
-        JsonCounter rdpConnectionsCounter = counters.get(RdpConnectionRelay.RDP_CONNECTIONS);
-        if (rdpConnectionsCounter != null) {
-          rdpCounters.put(RdpConnectionRelay.RDP_CONNECTIONS, rdpConnectionsCounter);
+      Map<String, JsonTimer> timers = jsonReport.getTimers();
+      JsonTimer clientToServer = timers.get(RdpConnectionRelay.RDP_CONNECTION_TIMER_CLIENT_TO_SERVER);
+      attributes.put("clientToServerAvgRelayLatency", clientToServer == null ? 0 : toMs(clientToServer.getMean()));
+      attributes.put("clientToServer99RelayLatency", clientToServer == null ? 0 : toMs(clientToServer.getP99th()));
+      attributes.put("clientToServer999RelayLatency", clientToServer == null ? 0 : toMs(clientToServer.getP999th()));
+
+      JsonTimer serverToClient = timers.get(RdpConnectionRelay.RDP_CONNECTION_TIMER_SERVER_TO_CLIENT);
+      attributes.put("serverToClientAvgRelayLatency", clientToServer == null ? 0 : toMs(serverToClient.getMean()));
+      attributes.put("serverToClient99RelayLatency", clientToServer == null ? 0 : toMs(serverToClient.getP99th()));
+      attributes.put("serverToClient999RelayLatency", clientToServer == null ? 0 : toMs(serverToClient.getP999th()));
+
+      Map<String, JsonMeter> meters = jsonReport.getMeters();
+      JsonMeter clientToServerMeterServer = meters.get(RdpConnectionRelay.RDP_CONNECTION_METER_CLIENT_TO_SERVER);
+      JsonMeter serverToClientMeterServer = meters.get(RdpConnectionRelay.RDP_CONNECTION_METER_SERVER_TO_CLIENT);
+      attributes.put("clientToServerBandwidth",
+          clientToServerMeterServer == null ? 0 : (long) clientToServerMeterServer.getOneMinuteRate());
+      attributes.put("serverToClientBandwidth",
+          serverToClientMeterServer == null ? 0 : (long) serverToClientMeterServer.getOneMinuteRate());
+
+      Map<String, ConnectionProxyInstance> connectionMap = _relay.getConnectionMap();
+      List<ConnectionInfoAdminPage> list = new ArrayList<>();
+      for (Entry<String, ConnectionProxyInstance> e : connectionMap.entrySet()) {
+        String id = e.getKey();
+        ConnectionProxyInstance connectionProxyInstance = e.getValue();
+        SocketInfo rdpServer = connectionProxyInstance.getServer();
+        SocketInfo rdpClient = connectionProxyInstance.getClient();
+        String hostName = rdpServer.getInetAddress()
+                                   .getHostName();
+
+        ConnectionInfoAdminPageBuilder builder = ConnectionInfoAdminPage.builder()
+                                                                        .id(id);
+
+        JsonMeter clientToServerMeter = meters.get(RdpConnectionRelay.getClientToServerBandwidthName(id));
+        if (clientToServerMeter != null) {
+          builder.clientToServerBandwidth(toKiB(clientToServerMeter.getMeanRate()))
+                 .clientToServerBandwidthOneMinute(toKiB(clientToServerMeter.getOneMinuteRate()))
+                 .clientToServerBandwidthTotal(toKiB(clientToServerMeter.getCount()));
         }
+
+        JsonMeter serverToClientMeter = meters.get(RdpConnectionRelay.getServerToClientBandwidthName(id));
+        if (serverToClientMeter != null) {
+          builder.serverToClientBandwidth(toKiB(serverToClientMeter.getMeanRate()))
+                 .serverToClientBandwidthOneMinute(toKiB(serverToClientMeter.getOneMinuteRate()))
+                 .serverToClientBandwidthTotal(toKiB(serverToClientMeter.getCount()));
+        }
+
+        list.add(builder.host(hostName)
+                        .rdpClient(rdpClient.getInfo())
+                        .rdpServer(rdpServer.getInfo())
+                        .build());
       }
+      Collections.sort(list);
+      attributes.put("connections", list);
+
+      attributes.put("listening", _relay.isListening());
 
       return new ModelAndView(attributes, "index.ftl");
+
     }, new FreeMarkerEngine());
+  }
+
+  private double toKiB(double rate) {
+    long r = (long) rate;
+    return (double) r / 1024.0;
+  }
+
+  private double toMs(double nanoSec) {
+    return nanoSec / 1_000_000.0;
   }
 
   public void initGateway() throws IOException {
@@ -175,7 +261,9 @@ public class RdpProxy implements Closeable {
 
   @Override
   public void close() throws IOException {
-    _gatewayService.stop();
+    Utils.closeQuietly(() -> _gatewayService.stop());
+    Utils.closeQuietly(() -> _adminService.stop());
+    Utils.closeQuietly(_relay);
   }
 
   private void addIfMissing(Map<String, RdpSetting> rdpSettingsMap, RdpSetting setting) {
