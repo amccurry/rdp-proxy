@@ -3,9 +3,12 @@ package rdp.proxy.server;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 import javax.servlet.http.HttpServletResponse;
@@ -13,18 +16,27 @@ import javax.servlet.http.HttpServletResponse;
 import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import rdp.proxy.server.metrics.JsonCounter;
+import rdp.proxy.server.metrics.JsonGauge;
+import rdp.proxy.server.metrics.JsonHistogram;
+import rdp.proxy.server.metrics.JsonMeter;
+import rdp.proxy.server.metrics.JsonReport;
 import rdp.proxy.server.metrics.JsonReporter;
+import rdp.proxy.server.metrics.JsonTimer;
 import rdp.proxy.server.metrics.SetupJvmMetrics;
 import rdp.proxy.server.relay.RdpConnectionRelay;
 import rdp.proxy.server.util.Utils;
 import rdp.proxy.spi.RdpSetting;
 import rdp.proxy.spi.RdpStore;
+import spark.ModelAndView;
 import spark.ResponseTransformer;
 import spark.Route;
 import spark.Service;
+import spark.template.freemarker.FreeMarkerEngine;
 
 public class RdpProxy implements Closeable {
 
+  private static final String RDP_COUNTERS = "rdpCounters";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String CONTENT_DISPOSITION = "Content-Disposition";
   private static final String CONTENT_TYPE = "Content-Type";
@@ -73,6 +85,29 @@ public class RdpProxy implements Closeable {
   public void initAdmin() {
     ResponseTransformer jsonTransformer = model -> new ObjectMapper().writeValueAsString(model);
     _adminService.get("/stats", (Route) (request, response) -> _reporter.getReport(), jsonTransformer);
+    _adminService.get("/", (request, response) -> {
+
+      Map<String, Object> attributes = new HashMap<>();
+      Map<String, JsonCounter> rdpCounters = new TreeMap<>();
+      attributes.put(RDP_COUNTERS, rdpCounters);
+
+      JsonReport jsonReport = _reporter.getReport();
+
+      Map<String, JsonCounter> counters = jsonReport.getCounters();
+      Map<String, JsonGauge> gauges = jsonReport.getGauges();
+      Map<String, JsonHistogram> histograms = jsonReport.getHistograms();
+      Map<String, JsonMeter> meters = jsonReport.getMeters();
+      Map<String, JsonTimer> timers = jsonReport.getTimers();
+
+      if (counters != null) {
+        JsonCounter rdpConnectionsCounter = counters.get(RdpConnectionRelay.RDP_CONNECTIONS);
+        if (rdpConnectionsCounter != null) {
+          rdpCounters.put(RdpConnectionRelay.RDP_CONNECTIONS, rdpConnectionsCounter);
+        }
+      }
+
+      return new ModelAndView(attributes, "index.ftl");
+    }, new FreeMarkerEngine());
   }
 
   public void initGateway() throws IOException {

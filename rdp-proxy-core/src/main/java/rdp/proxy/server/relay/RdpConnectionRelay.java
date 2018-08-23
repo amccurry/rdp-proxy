@@ -30,7 +30,7 @@ public class RdpConnectionRelay {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(RdpConnectionRelay.class);
 
-  private static final String RDP_CONNECTIONS = "rdp.connections";
+  public static final String RDP_CONNECTIONS = "rdp.connections";
   
   private final ServerSocket _ss;
   private final AtomicBoolean _running = new AtomicBoolean(true);
