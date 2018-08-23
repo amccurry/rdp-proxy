@@ -5,13 +5,11 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.ServerSocket;
 import java.util.List;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 
-import lombok.extern.java.Log;
 import rdp.proxy.server.RdpProxyConfig;
 import rdp.proxy.server.RdpProxyConfig.RdpProxyConfigBuilder;
 import rdp.proxy.service.spi.RdpProxyServiceSetup;
