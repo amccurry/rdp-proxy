@@ -25,7 +25,7 @@ public class RdpProxyConfig {
 
   @Default
   String rdpGatewayHttpBindAddress = "0.0.0.0";
-  
+
   @Default
   int rdpAdminHttpPort = 5001;
 
@@ -49,6 +49,12 @@ public class RdpProxyConfig {
 
   @Default
   int rdpSoTimeout = (int) TimeUnit.DAYS.toMillis(1);
+
+  @Default
+  long waitTimeBetweenAttempts = TimeUnit.SECONDS.toMillis(6);
+
+  @Default
+  int maxConnectionAttempts = 10;
 
   public String getRdpHostname() throws IOException {
     String hostnameAdvertised = getRdpHostnameAdvertised();

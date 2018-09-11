@@ -56,7 +56,6 @@ public class RdpConnectionRelay implements Closeable {
   private final ExecutorService _service;
   private final RdpStore _store;
   private final int _bufferSize;
-  private final long _relayCheckTime = TimeUnit.SECONDS.toMillis(1);
   private final int _remoteRdpTcpTimeout;
   private final int _soTimeout;
   private final Counter _connectionCounter;
@@ -67,6 +66,9 @@ public class RdpConnectionRelay implements Closeable {
   private final Meter _connectionMeterServerToClient;
   private final Meter _connectionMeterClientToServer;
   private final RdpProxyConfig _config;
+  private final long _relayCheckTime = TimeUnit.SECONDS.toMillis(1);
+  private final long _waitTimeBetweenAttempts;
+  private final int _maxConnectionAttempts;
 
   public RdpConnectionRelay(RdpProxyConfig config, RdpStore store, MetricRegistry metrics) throws IOException {
     _metrics = metrics;
@@ -74,6 +76,8 @@ public class RdpConnectionRelay implements Closeable {
     _remoteRdpTcpTimeout = config.getRdpRemoteTcpTimeout();
     _soTimeout = config.getRdpSoTimeout();
     _store = store;
+    _waitTimeBetweenAttempts = config.getWaitTimeBetweenAttempts();
+    _maxConnectionAttempts = config.getMaxConnectionAttempts();
     _config = config;
 
     _service = Executors.newCachedThreadPool();
@@ -237,20 +241,23 @@ public class RdpConnectionRelay implements Closeable {
     return id + BANDWIDTH_METER_CLIENT_TO_SERVER;
   }
 
-  private Socket createConnection(Set<ConnectionInfo> connectionInfoSet) throws IOException {
-    for (ConnectionInfo connectionInfo : connectionInfoSet) {
-      Socket rdpServer = new Socket(connectionInfo.getProxy());
-      rdpServer.setTcpNoDelay(true);
-      rdpServer.setSoTimeout(_soTimeout);
-      rdpServer.setKeepAlive(true);
-      SocketAddress _endpoint = new InetSocketAddress(connectionInfo.getAddress(), connectionInfo.getPort());
-      try {
-        rdpServer.connect(_endpoint, _remoteRdpTcpTimeout);
-        return rdpServer;
-      } catch (Exception e) {
-        LOGGER.error("Could not connect to {}", connectionInfo);
-        LOGGER.error("Connection execption", e);
+  private Socket createConnection(Set<ConnectionInfo> connectionInfoSet) throws IOException, InterruptedException {
+    for (int attempt = 0; attempt < _maxConnectionAttempts; attempt++) {
+      for (ConnectionInfo connectionInfo : connectionInfoSet) {
+        Socket rdpServer = new Socket(connectionInfo.getProxy());
+        rdpServer.setTcpNoDelay(true);
+        rdpServer.setSoTimeout(_soTimeout);
+        rdpServer.setKeepAlive(true);
+        SocketAddress _endpoint = new InetSocketAddress(connectionInfo.getAddress(), connectionInfo.getPort());
+        try {
+          rdpServer.connect(_endpoint, _remoteRdpTcpTimeout);
+          return rdpServer;
+        } catch (Exception e) {
+          LOGGER.error("Could not connect to {}", connectionInfo);
+          LOGGER.error("Connection execption", e);
+        }
       }
+      Thread.sleep(_waitTimeBetweenAttempts);
     }
     throw new IOException("None of the connectionInfos " + connectionInfoSet + " successfully connected");
   }
