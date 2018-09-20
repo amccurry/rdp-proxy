@@ -33,6 +33,8 @@ public class RdpProxyConfig {
   String rdpAdminHttpBindAddress = "0.0.0.0";
 
   String rdpHostnameAdvertised;
+  
+  int rdpPortAdvertised;
 
   String rdpProxySetupClassname;
 

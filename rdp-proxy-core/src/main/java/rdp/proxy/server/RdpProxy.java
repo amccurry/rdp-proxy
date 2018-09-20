@@ -65,16 +65,16 @@ public class RdpProxy implements Closeable {
   private final RdpStore _store;
   private final RdpProxyConfig _config;
   private final String _hostnameAdvertised;
-  private final int _rdpPort;
   private final RdpConnectionRelay _relay;
   private final Service _adminService;
   private final MetricRegistry _metrics = new MetricRegistry();
   private final JsonReporter _reporter;
+  private final int _rdpPortAdvertised;
 
   public RdpProxy(RdpProxyConfig config) throws Exception {
     _config = config;
     _hostnameAdvertised = config.getRdpHostname();
-    _rdpPort = _config.getRdpPort();
+    _rdpPortAdvertised = config.getRdpPortAdvertised();
     _gatewayService = Utils.igniteGatewayService(config);
     _adminService = Utils.igniteAdminService(config);
     _store = Utils.getRdpMetaStore(config);
@@ -207,10 +207,10 @@ public class RdpProxy implements Closeable {
       String loadBalanceInfo = _store.getLoadBalanceInfo(user);
 
       List<RdpSetting> rdpSettings = _store.getRdpSettings(defaultSettings, user, loadBalanceInfo, _hostnameAdvertised,
-          _rdpPort);
+          _rdpPortAdvertised);
       Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
 
-      addIfMissing(rdpSettingsMap, RdpSetting.create(FULL_ADDRESS, _hostnameAdvertised + ":" + _rdpPort));
+      addIfMissing(rdpSettingsMap, RdpSetting.create(FULL_ADDRESS, _hostnameAdvertised + ":" + _rdpPortAdvertised));
 
       RdpSetting fullAddress = rdpSettingsMap.get(FULL_ADDRESS);
 
@@ -218,7 +218,7 @@ public class RdpProxy implements Closeable {
                             .user(user)
                             .loadBalanceInfo(loadBalanceInfo)
                             .hostname(fullAddress.getStringValue())
-                            .port(_rdpPort)
+                            .port(_rdpPortAdvertised)
                             .build();
     };
 
@@ -230,11 +230,11 @@ public class RdpProxy implements Closeable {
       String loadBalanceInfo = _store.getLoadBalanceInfo(user);
 
       List<RdpSetting> rdpSettings = _store.getRdpSettings(defaultSettings, user, loadBalanceInfo, _hostnameAdvertised,
-          _rdpPort);
+          _rdpPortAdvertised);
       Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
 
       // full address:s:localhost:3389
-      addIfMissing(rdpSettingsMap, RdpSetting.create(FULL_ADDRESS, _hostnameAdvertised + ":" + _rdpPort));
+      addIfMissing(rdpSettingsMap, RdpSetting.create(FULL_ADDRESS, _hostnameAdvertised + ":" + _rdpPortAdvertised));
 
       // username:s:red
       addIfMissing(rdpSettingsMap, RdpSetting.create(USERNAME, user));

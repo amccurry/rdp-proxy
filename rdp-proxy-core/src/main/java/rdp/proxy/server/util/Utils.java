@@ -22,6 +22,7 @@ import spark.Service;
 @SuppressWarnings("unchecked")
 public class Utils {
 
+  public static final String RDP_PORT_ADVERTISED = "RDP_PORT_ADVERTISED";
   public static final String RDP_GATEWAY_HTTP_BIND_ADDRESS = "RDP_GATEWAY_HTTP_BIND_ADDRESS";
   public static final String RDP_ADMIN_HTTP_PORT = "RDP_ADMIN_HTTP_PORT";
   public static final String RDP_GATEWAY_HTTP_PORT = "RDP_GATEWAY_HTTP_PORT";
@@ -66,6 +67,12 @@ public class Utils {
       }
     }
     {
+      Integer prop = ConfigUtil.loadProperty(RDP_PORT_ADVERTISED, value -> Integer.parseInt(value));
+      if (prop != null) {
+        builder.rdpPortAdvertised(prop);
+      }
+    }
+    {
       String prop = ConfigUtil.loadProperty(RDP_BIND_ADDRESS, value -> value);
       if (prop != null) {
         builder.rdpBindAddress(prop);
@@ -83,7 +90,6 @@ public class Utils {
         builder.rdpAdminHttpPort(prop);
       }
     }
-
     {
       String prop = ConfigUtil.loadProperty(RDP_GATEWAY_HTTP_BIND_ADDRESS, value -> value);
       if (prop != null) {
