@@ -3,7 +3,7 @@ set -ex
 VERSION="${1}"
 DIR=$(pwd)
 TMPDIR="/tmp/mvn-repo/$(uuidgen)"
-mkdir $TMPDIR
+mkdir -p $TMPDIR
 cd $TMPDIR
 
 git clone git@github.com:amccurry/rdp-proxy.git
