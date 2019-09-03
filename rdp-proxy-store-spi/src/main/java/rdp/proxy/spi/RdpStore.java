@@ -1,5 +1,6 @@
 package rdp.proxy.spi;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
@@ -58,5 +59,17 @@ public interface RdpStore {
    * @throws IOException
    */
   Set<ConnectionInfo> getConnectionInfoWithCookie(String cookie) throws IOException;
+
+  /**
+   * Creates a session hook for the given cookie. Close on the {@link Closeable}
+   * will be called on session termination.
+   * 
+   * @param cookie
+   * @return
+   */
+  default Closeable createSession(String cookie) throws IOException {
+    return () -> {
+    };
+  }
 
 }

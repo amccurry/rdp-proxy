@@ -45,11 +45,11 @@ public abstract class BaseRdpStore implements RdpStore {
     }
   }
 
-  protected static String getMstsHashValue(String cookie) {
+  public static String getMstsHashValue(String cookie) {
     return cookie.replace(COOKIE_MSTSHASH, "");
   }
 
-  protected static boolean isCookieMstsHash(String cookie) {
+  public static boolean isCookieMstsHash(String cookie) {
     return cookie.contains(COOKIE_MSTSHASH);
   }
 

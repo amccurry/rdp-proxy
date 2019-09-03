@@ -193,41 +193,43 @@ public class RdpConnectionRelay implements Closeable {
         }
 
         LOGGER.info("Connection info {} for cookie {} for remote socket", connectionInfoSet, cookie, socket);
+        try (Closeable session = _store.createSession(cookie)) {
+          try (Socket rdpServer = createConnection(connectionInfoSet)) {
+            AtomicBoolean alive = new AtomicBoolean(true);
+            String id = UUID.randomUUID()
+                            .toString();
+            SocketInfo serverConnection = SocketInfo.create(rdpServer);
+            _connectionMap.put(id, ConnectionProxyInstance.builder()
+                                                          .client(clientConnection)
+                                                          .server(serverConnection)
+                                                          .id(id)
+                                                          .alive(alive)
+                                                          .build());
+            Meter bandwidthClientToServer = _metrics.meter(getClientToServerBandwidthName(id));
+            Meter bandwidthServerToClient = _metrics.meter(getServerToClientBandwidthName(id));
+            try (InputStream rsInput = rdpServer.getInputStream();
+                OutputStream rsOutput = rdpServer.getOutputStream()) {
+              rsOutput.write(message.buffer, 0, message.length);
+              rsOutput.flush();
 
-        try (Socket rdpServer = createConnection(connectionInfoSet)) {
-          AtomicBoolean alive = new AtomicBoolean(true);
-          String id = UUID.randomUUID()
-                          .toString();
-          SocketInfo serverConnection = SocketInfo.create(rdpServer);
-          _connectionMap.put(id, ConnectionProxyInstance.builder()
-                                                        .client(clientConnection)
-                                                        .server(serverConnection)
-                                                        .id(id)
-                                                        .alive(alive)
-                                                        .build());
-          Meter bandwidthClientToServer = _metrics.meter(getClientToServerBandwidthName(id));
-          Meter bandwidthServerToClient = _metrics.meter(getServerToClientBandwidthName(id));
-          try (InputStream rsInput = rdpServer.getInputStream(); OutputStream rsOutput = rdpServer.getOutputStream()) {
-            rsOutput.write(message.buffer, 0, message.length);
-            rsOutput.flush();
-
-            Future<Void> f1 = startRelayReadMessages(alive, rcInput, rsOutput, _connectionTimerClientToServer,
-                bandwidthClientToServer, _connectionMeterClientToServer, bytesRef);
-            Future<Void> f2 = startRelay(alive, rsInput, rcOutput, _connectionTimerServerToClient,
-                bandwidthServerToClient, _connectionMeterServerToClient);
-            while (_running.get()) {
-              if (!alive.get() || shouldCloseConnection(f1, f2, rdpServer, socket)) {
-                alive.set(false);
-                f1.cancel(true);
-                f2.cancel(true);
-                return;
+              Future<Void> f1 = startRelayReadMessages(alive, rcInput, rsOutput, _connectionTimerClientToServer,
+                  bandwidthClientToServer, _connectionMeterClientToServer, bytesRef);
+              Future<Void> f2 = startRelay(alive, rsInput, rcOutput, _connectionTimerServerToClient,
+                  bandwidthServerToClient, _connectionMeterServerToClient);
+              while (_running.get()) {
+                if (!alive.get() || shouldCloseConnection(f1, f2, rdpServer, socket)) {
+                  alive.set(false);
+                  f1.cancel(true);
+                  f2.cancel(true);
+                  return;
+                }
+                Thread.sleep(_relayCheckTime);
               }
-              Thread.sleep(_relayCheckTime);
+            } finally {
+              _metrics.remove(getClientToServerBandwidthName(id));
+              _metrics.remove(getServerToClientBandwidthName(id));
+              _connectionMap.remove(id);
             }
-          } finally {
-            _metrics.remove(getClientToServerBandwidthName(id));
-            _metrics.remove(getServerToClientBandwidthName(id));
-            _connectionMap.remove(id);
           }
         }
       }
