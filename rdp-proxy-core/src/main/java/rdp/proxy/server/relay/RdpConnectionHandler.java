@@ -21,10 +21,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import rdp.proxy.server.util.ConfigUtils;
 import rdp.proxy.spi.ConnectionInfo;
-import rdp.proxy.spi.RdpStore;
+import rdp.proxy.spi.RdpGatewayApi;
 
 @Slf4j
-public class RdpConnectionHandler implements Callable<Boolean> {
+public class RdpConnectionHandler implements Callable<Void> {
 
   private final AtomicBoolean _running = new AtomicBoolean(true);
   private final long _waitTimeBetweenAttemptsInSeconds;
@@ -32,55 +32,104 @@ public class RdpConnectionHandler implements Callable<Boolean> {
   private final ExecutorService _service;
   private final int _bufferSize = 10000;
   private final long _relayCheckTimeInSeconds;
-  private final int _soTimeout;
-  private final int _remoteRdpTcpTimeout;
+  private final int _remoteRdpTcpConnectTimeout;
+  private final RdpGatewayApi _rdpGatewayApi;
+  private final RdpClientConnectionEvents _events;
+  private final Socket _clientSocket;
+  private final int _soClientTimeout;
+  private final int _soServerTimeout;
 
-  private RdpStore _store;
+  public static class RdpConnectionHandlerBuilder {
+    private ExecutorService _service;
+    private RdpGatewayApi _rdpGatewayApi;
+    private RdpClientConnectionEvents _events = RdpClientConnectionEvents.NO_OP;
+    private Socket _clientSocket;
 
-  public RdpConnectionHandler(ExecutorService service) {
+    public RdpConnectionHandlerBuilder service(ExecutorService service) {
+      _service = service;
+      return this;
+    }
+
+    public RdpConnectionHandlerBuilder rdpGatewayApi(RdpGatewayApi rdpGatewayApi) {
+      _rdpGatewayApi = rdpGatewayApi;
+      return this;
+    }
+
+    public RdpConnectionHandlerBuilder events(RdpClientConnectionEvents events) {
+      _events = events;
+      return this;
+    }
+
+    public RdpConnectionHandlerBuilder clientSocket(Socket clientSocket) {
+      _clientSocket = clientSocket;
+      return this;
+    }
+
+    public RdpConnectionHandler build() {
+      return new RdpConnectionHandler(_service, _rdpGatewayApi, _events, _clientSocket);
+    }
+  }
+
+  public static RdpConnectionHandlerBuilder create() {
+    return new RdpConnectionHandlerBuilder();
+  }
+
+  private RdpConnectionHandler(ExecutorService service, RdpGatewayApi rdpGatewayApi, RdpClientConnectionEvents events,
+      Socket clientSocket) {
     _service = service;
+    _rdpGatewayApi = rdpGatewayApi;
+    _events = events;
+    _clientSocket = clientSocket;
+
     _waitTimeBetweenAttemptsInSeconds = ConfigUtils.getRdpGatewayWaitTimeBetweenAttemptsToConnectInSeconds();
     _maxConnectionAttempts = ConfigUtils.getRdpGatewayMaxConnectionAttempts();
     _relayCheckTimeInSeconds = ConfigUtils.getRdpGatewayRelayCheckTimeInSeconds();
-    _soTimeout = ConfigUtils.getRdpGatewaySoTimeoutInMilliSeconds();
-    _remoteRdpTcpTimeout = ConfigUtils.getRdpGatewayRemoteRdpTcpTimeout();
+    _soClientTimeout = ConfigUtils.getRdpGatewayClientSoTimeoutInMilliSeconds();
+    _soServerTimeout = ConfigUtils.getRdpGatewayServerSoTimeoutInMilliSeconds();
+    _remoteRdpTcpConnectTimeout = ConfigUtils.getRdpGatewayRemoteRdpTcpConnectTimeoutInMilliSeconds();
   }
 
   @Override
-  public Boolean call() throws Exception {
+  public Void call() throws Exception {
+    handleNewConnection();
     return null;
   }
 
-  private void handleNewConnection(Socket s) throws Exception {
-    try (Socket socket = s) {
-      log.debug("Socket {} new connection", socket);
-      configureSocket(socket);
+  private void handleNewConnection() throws Exception {
+    try (Socket socket = _clientSocket; RdpClientConnectionEvents events = _events) {
+      events.newClientConnection(socket);
+      configureSocket(socket, _soServerTimeout);
+      events.newClientConnectionConfigured(socket);
       BytesRef bytesRef = new BytesRef();
       try (InputStream rcInput = socket.getInputStream(); OutputStream rcOutput = socket.getOutputStream()) {
-        log.debug("Socket {} read first message", socket);
         BytesRef message = readFirstMessage(rcInput, bytesRef);
         if (message == null) {
+          events.noFirstMessageFailure();
           return;
         }
-        log.info("Socket {} find cookie", socket);
+        events.readFirstMessage(message);
         String cookie = findCookie(message);
-        Set<ConnectionInfo> connectionInfoSet = _store.getConnectionInfoWithCookie(cookie);
-        log.info("Socket {} connectionInfo {} with cookie {} found", socket, connectionInfoSet, cookie);
+        events.cookie(message);
 
+        Set<ConnectionInfo> connectionInfoSet = _rdpGatewayApi.getConnectionInfoWithCookie(cookie);
         if (connectionInfoSet == null || connectionInfoSet.isEmpty()) {
-          log.info("Socket {} connection info for cookie {} did not find a remote connection, hang up", socket, cookie);
+          events.noConnectionInfoFailure();
           return;
         }
-
-        log.info("Connection info {} for cookie {} for remote socket", connectionInfoSet, cookie, socket);
-        try (Closeable session = _store.createSession(cookie)) {
+        events.connectionInfo(connectionInfoSet);
+        try (Closeable session = _rdpGatewayApi.createSession(cookie)) {
+          events.createSession(cookie, session);
           try (Socket rdpServer = createConnection(connectionInfoSet)) {
+            events.createRemoteConnection(connectionInfoSet);
             AtomicBoolean alive = new AtomicBoolean(true);
             try (InputStream rsInput = rdpServer.getInputStream();
                 OutputStream rsOutput = rdpServer.getOutputStream()) {
+              events.writeFirstMessage(message);
               rsOutput.write(message.buffer, 0, message.length);
               rsOutput.flush();
+              events.startInboundMessageRelay();
               Future<Void> f1 = startRelayReadMessages(alive, rcInput, rsOutput, bytesRef);
+              events.startOutboundMessageRelay();
               Future<Void> f2 = startRelay(alive, rsInput, rcOutput);
               while (_running.get()) {
                 if (!alive.get() || shouldCloseConnection(f1, f2, rdpServer, socket)) {
@@ -119,10 +168,10 @@ public class RdpConnectionHandler implements Callable<Boolean> {
     for (int attempt = 0; attempt < _maxConnectionAttempts; attempt++) {
       for (ConnectionInfo connectionInfo : connectionInfoSet) {
         Socket rdpServer = new Socket(connectionInfo.getProxy());
-        configureSocket(rdpServer);
+        configureSocket(rdpServer, _soClientTimeout);
         SocketAddress _endpoint = new InetSocketAddress(connectionInfo.getAddress(), connectionInfo.getPort());
         try {
-          rdpServer.connect(_endpoint, _remoteRdpTcpTimeout);
+          rdpServer.connect(_endpoint, _remoteRdpTcpConnectTimeout);
           return rdpServer;
         } catch (Exception e) {
           log.error("Could not connect to {}", connectionInfo);
@@ -134,9 +183,9 @@ public class RdpConnectionHandler implements Callable<Boolean> {
     throw new IOException("None of the connectionInfos " + connectionInfoSet + " successfully connected");
   }
 
-  private void configureSocket(Socket rdpServer) throws SocketException {
+  private void configureSocket(Socket rdpServer, int soTimeout) throws SocketException {
     rdpServer.setTcpNoDelay(true);
-    rdpServer.setSoTimeout(_soTimeout);
+    rdpServer.setSoTimeout(soTimeout);
     rdpServer.setKeepAlive(true);
   }
 

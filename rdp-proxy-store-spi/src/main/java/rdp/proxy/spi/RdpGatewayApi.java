@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
-public interface RdpStore {
+public interface RdpGatewayApi {
 
   /**
    * Is used to validate the given user is valid before responding with rdp

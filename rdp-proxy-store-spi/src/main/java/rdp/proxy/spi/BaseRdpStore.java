@@ -8,10 +8,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public abstract class BaseRdpStore implements RdpStore {
+public abstract class BaseRdpStore implements RdpGatewayApi {
   public static final String COOKIE_MSTSHASH = "Cookie: mstshash=";
 
-  public static RdpStore INSTANCE = new BaseRdpStore() {
+  public static RdpGatewayApi INSTANCE = new BaseRdpStore() {
   };
 
   @Override
@@ -39,9 +39,15 @@ public abstract class BaseRdpStore implements RdpStore {
   public Set<ConnectionInfo> getConnectionInfoWithCookie(String cookie) throws IOException {
     if (isCookieMstsHash(cookie)) {
       String host = getMstsHashValue(cookie);
-      return toSet(new ConnectionInfo(InetAddress.getByName(host), 3389));
+      return toSet(ConnectionInfo.builder()
+                                 .address(InetAddress.getByName(host))
+                                 .port(3389)
+                                 .build());
     } else {
-      return toSet(new ConnectionInfo(InetAddress.getByName(cookie), 3389));
+      return toSet(ConnectionInfo.builder()
+                                 .address(InetAddress.getByName(cookie))
+                                 .port(3389)
+                                 .build());
     }
   }
 
@@ -53,7 +59,7 @@ public abstract class BaseRdpStore implements RdpStore {
     return cookie.contains(COOKIE_MSTSHASH);
   }
 
-  private Set<ConnectionInfo> toSet(ConnectionInfo connectionInfo) {
+  protected Set<ConnectionInfo> toSet(ConnectionInfo connectionInfo) {
     return new HashSet<>(Arrays.asList(connectionInfo));
   }
 }
