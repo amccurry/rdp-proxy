@@ -39,6 +39,14 @@ import spark.template.freemarker.FreeMarkerEngine;
 
 public class RdpProxy implements Closeable {
 
+  private static final String RDP_FILE_USER = "/rdp-file/:user";
+  private static final String RDP_JSON_USER = "/rdp-json/:user";
+  private static final String RDP_INFO_USER = "/rdp-info/:user";
+  private static final String ROOT = "/";
+  private static final String LISTEN_DISABLE = "/listen/disable";
+  private static final String LISTEN_ENABLE = "/listen/enable";
+  private static final String KILL_ID = "/kill/:id";
+  private static final String STATS = "/stats";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String CONTENT_DISPOSITION = "Content-Disposition";
   private static final String CONTENT_TYPE = "Content-Type";
@@ -62,11 +70,11 @@ public class RdpProxy implements Closeable {
   }
 
   private final Service _gatewayService;
+  private final Service _adminService;
   private final RdpStore _store;
   private final RdpProxyConfig _config;
   private final String _hostnameAdvertised;
   private final RdpConnectionRelay _relay;
-  private final Service _adminService;
   private final MetricRegistry _metrics = new MetricRegistry();
   private final JsonReporter _reporter;
   private final int _rdpPortAdvertised;
@@ -94,24 +102,24 @@ public class RdpProxy implements Closeable {
 
   public void initAdmin() {
     ResponseTransformer jsonTransformer = model -> new ObjectMapper().writeValueAsString(model);
-    _adminService.get("/stats", (Route) (request, response) -> _reporter.getReport(), jsonTransformer);
-    _adminService.post("/kill/:id", (request, response) -> {
+    _adminService.get(STATS, (Route) (request, response) -> _reporter.getReport(), jsonTransformer);
+    _adminService.post(KILL_ID, (request, response) -> {
       String id = request.params("id");
       _relay.kill(id);
-      response.redirect("/");
+      response.redirect(ROOT);
       return null;
     });
-    _adminService.post("/listen/enable", (request, response) -> {
+    _adminService.post(LISTEN_ENABLE, (request, response) -> {
       _relay.startListening();
-      response.redirect("/");
+      response.redirect(ROOT);
       return null;
     });
-    _adminService.post("/listen/disable", (request, response) -> {
+    _adminService.post(LISTEN_DISABLE, (request, response) -> {
       _relay.stopListening();
-      response.redirect("/");
+      response.redirect(ROOT);
       return null;
     });
-    _adminService.get("/", (request, response) -> {
+    _adminService.get(ROOT, (request, response) -> {
       Map<String, Object> attributes = new HashMap<>();
       JsonReport jsonReport = _reporter.getReport();
       Map<String, JsonHistogram> histograms = jsonReport.getHistograms();
@@ -187,15 +195,6 @@ public class RdpProxy implements Closeable {
     }, new FreeMarkerEngine());
   }
 
-  private double toKiB(double rate) {
-    long r = (long) rate;
-    return (double) r / 1024.0;
-  }
-
-  private double toMs(double nanoSec) {
-    return nanoSec / 1_000_000.0;
-  }
-
   public void initGateway() throws IOException {
     List<RdpSetting> defaultSettings = Utils.getRdpDefaults();
     Route infoRoute = (Route) (request, response) -> {
@@ -254,9 +253,9 @@ public class RdpProxy implements Closeable {
       return null;
     };
 
-    _gatewayService.get("/rdp-info/:user", infoRoute);
-    _gatewayService.get("/rdp-json/:user", infoRoute, JSON_TRANSFORMER);
-    _gatewayService.get("/rdp-file/:user", rdpFileRoute);
+    _gatewayService.get(RDP_INFO_USER, infoRoute);
+    _gatewayService.get(RDP_JSON_USER, infoRoute, JSON_TRANSFORMER);
+    _gatewayService.get(RDP_FILE_USER, rdpFileRoute);
   }
 
   @Override
@@ -278,5 +277,14 @@ public class RdpProxy implements Closeable {
       map.put(rdpSetting.getName(), rdpSetting);
     }
     return map;
+  }
+
+  private double toKiB(double rate) {
+    long r = (long) rate;
+    return (double) r / 1024.0;
+  }
+
+  private double toMs(double nanoSec) {
+    return nanoSec / 1_000_000.0;
   }
 }

@@ -18,10 +18,11 @@ import rdp.proxy.spi.config.ConfigUtil;
 
 public class FileRdpStore extends BaseRdpStore {
 
+  private static final String RDP_INFO_FILE = "RDP_INFO_FILE";
   private final File _dir;
 
   public FileRdpStore() {
-    _dir = ConfigUtil.loadProperty("RDP_INFO_FILE", value -> new File(value));
+    _dir = ConfigUtil.loadProperty(RDP_INFO_FILE, value -> new File(value));
   }
 
   @Override

@@ -1,34 +1,19 @@
 package rdp.proxy.server.relay;
 
-import java.io.IOException;
 import java.net.InetAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.NoArgsConstructor;
 import lombok.Value;
 
 @Value
+@NoArgsConstructor(force = true, access = AccessLevel.PRIVATE)
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class SocketInfo {
-
-  public static void main(String args[]) throws IOException {
-    new Thread(() -> {
-      try (ServerSocket ss = new ServerSocket(5555)) {
-        try (Socket socket = ss.accept()) {
-          System.out.println("server " + SocketInfo.create(socket));
-          Thread.sleep(5000);
-        }
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-    }).start();
-    try (Socket sock = new Socket("127.0.0.01", 5555)) {
-      System.out.println("client " + SocketInfo.create(sock));
-    }
-  }
 
   InetAddress inetAddress;
   int port;

@@ -4,7 +4,7 @@
 	<groupId>rdp-proxy</groupId>
 	<artifactId>rdp-proxy</artifactId>
 	<packaging>pom</packaging>
-	<version>1.1.2</version>
+	<version>1.1.3</version>
 	<name>rdp-proxy</name>
 
 	<modules>
@@ -49,17 +49,17 @@
 			<dependency>
 				<groupId>com.fasterxml.jackson.core</groupId>
 				<artifactId>jackson-core</artifactId>
-				<version>2.9.6</version>
+				<version>2.9.10</version>
 			</dependency>
 			<dependency>
 				<groupId>com.fasterxml.jackson.core</groupId>
 				<artifactId>jackson-annotations</artifactId>
-				<version>2.9.6</version>
+				<version>2.9.10</version>
 			</dependency>
 			<dependency>
 				<groupId>com.fasterxml.jackson.core</groupId>
 				<artifactId>jackson-databind</artifactId>
-				<version>2.9.6</version>
+				<version>2.9.10</version>
 			</dependency>
 			<dependency>
 				<groupId>com.google.guava</groupId>

@@ -6,24 +6,6 @@ mvn clean install -DskipTests
 
 VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:3.1.0:evaluate -Dexpression=project.version -q -DforceStdout)
 
-# mvn help:effective-pom -Doutput=./target/effective.xml
-#
-# pushd ./rdp-proxy-core
-# mvn help:effective-pom -Doutput=./target/effective.xml
-# popd
-#
-# pushd ./rdp-proxy-file
-# mvn help:effective-pom -Doutput=./target/effective.xml
-# popd
-#
-# pushd ./rdp-proxy-service-spi
-# mvn help:effective-pom -Doutput=./target/effective.xml
-# popd
-#
-# pushd ./rdp-proxy-store-spi
-# mvn help:effective-pom -Doutput=./target/effective.xml
-# popd
-
 DIR=$(pwd)
 TMPDIR="/tmp/mvn-repo/$(uuidgen)"
 mkdir -p $TMPDIR

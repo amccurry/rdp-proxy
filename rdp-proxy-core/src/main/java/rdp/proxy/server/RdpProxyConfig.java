@@ -4,14 +4,17 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.concurrent.TimeUnit;
 
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Builder.Default;
+import lombok.NoArgsConstructor;
 import lombok.Value;
 
-@AllArgsConstructor
 @Value
-@Builder
+@NoArgsConstructor(force = true, access = AccessLevel.PRIVATE)
+@AllArgsConstructor
+@Builder(toBuilder = true)
 public class RdpProxyConfig {
 
   @Default
