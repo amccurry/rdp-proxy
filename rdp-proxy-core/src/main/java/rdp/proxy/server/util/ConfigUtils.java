@@ -12,8 +12,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 
 import lombok.SneakyThrows;
-import rdp.proxy.spi.BaseRdpStore;
-import rdp.proxy.spi.RdpGatewayApi;
+import rdp.proxy.spi.BaseRdpGatewayController;
+import rdp.proxy.spi.RdpGatewayController;
 import rdp.proxy.spi.RdpSetting;
 import spark.Service;
 
@@ -21,7 +21,7 @@ public class ConfigUtils {
 
   private static final String DEFAULT_RDP = "/default.rdp";
 
-  private static final String RDP_GATEWAY_API_CLASSNAME = "RDP_GATEWAY_API_CLASSNAME";
+  private static final String RDP_GATEWAY_CONTROLLER_CLASSNAME = "RDP_GATEWAY_CONTROLLER_CLASSNAME";
   private static final String RDP_GATEWAY_WAIT_TIME_BETWEEN_ATTEMPTS_TO_CONNECT_DEFAULT = "5";
   private static final String RDP_GATEWAY_WAIT_TIME_BETWEEN_ATTEMPTS_TO_CONNECT = "RDP_GATEWAY_WAIT_TIME_BETWEEN_ATTEMPTS_TO_CONNECT";
 
@@ -119,13 +119,13 @@ public class ConfigUtils {
   }
 
   @SneakyThrows
-  public static RdpGatewayApi createRdpGatewayApi() {
-    String classname = getProperty(RDP_GATEWAY_API_CLASSNAME);
+  public static RdpGatewayController createRdpGatewayController() {
+    String classname = getProperty(RDP_GATEWAY_CONTROLLER_CLASSNAME);
     if (classname == null) {
-      return BaseRdpStore.INSTANCE;
+      return BaseRdpGatewayController.INSTANCE;
     }
     @SuppressWarnings("unchecked")
-    Class<? extends RdpGatewayApi> clazz = (Class<? extends RdpGatewayApi>) Class.forName(classname);
+    Class<? extends RdpGatewayController> clazz = (Class<? extends RdpGatewayController>) Class.forName(classname);
     return clazz.newInstance();
   }
 

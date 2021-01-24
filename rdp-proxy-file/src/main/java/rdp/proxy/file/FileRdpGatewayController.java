@@ -12,16 +12,16 @@ import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
 
-import rdp.proxy.spi.BaseRdpStore;
+import rdp.proxy.spi.BaseRdpGatewayController;
 import rdp.proxy.spi.RdpSetting;
 import rdp.proxy.spi.config.ConfigUtil;
 
-public class FileRdpStore extends BaseRdpStore {
+public class FileRdpGatewayController extends BaseRdpGatewayController {
 
   private static final String RDP_INFO_FILE = "RDP_INFO_FILE";
   private final File _dir;
 
-  public FileRdpStore() {
+  public FileRdpGatewayController() {
     _dir = ConfigUtil.loadProperty(RDP_INFO_FILE, value -> new File(value));
   }
 

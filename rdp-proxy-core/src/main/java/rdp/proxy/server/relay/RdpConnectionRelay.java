@@ -14,23 +14,23 @@ import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import rdp.proxy.server.util.ConfigUtils;
 import rdp.proxy.server.util.Utils;
-import rdp.proxy.spi.RdpGatewayApi;
+import rdp.proxy.spi.RdpGatewayController;
 
 @Slf4j
-public class RdpConnectionRelayV2 implements Closeable {
+public class RdpConnectionRelay implements Closeable {
 
   private final AtomicReference<Future<Void>> _futureListener = new AtomicReference<>();
   private final AtomicReference<ServerSocket> _ss = new AtomicReference<>();
   private final AtomicBoolean _running = new AtomicBoolean(true);
   private final AtomicBoolean _listening = new AtomicBoolean();
   private final ExecutorService _service;
-  private final RdpGatewayApi _rdpGatewayApi;
+  private final RdpGatewayController _rdpGatewayApi;
 
-  public static RdpConnectionRelayV2 create(RdpGatewayApi rdpGatewayApi) {
-    return new RdpConnectionRelayV2(rdpGatewayApi);
+  public static RdpConnectionRelay create(RdpGatewayController rdpGatewayApi) {
+    return new RdpConnectionRelay(rdpGatewayApi);
   }
 
-  private RdpConnectionRelayV2(RdpGatewayApi rdpGatewayApi) {
+  private RdpConnectionRelay(RdpGatewayController rdpGatewayApi) {
     _rdpGatewayApi = rdpGatewayApi;
     _service = Executors.newCachedThreadPool();
   }

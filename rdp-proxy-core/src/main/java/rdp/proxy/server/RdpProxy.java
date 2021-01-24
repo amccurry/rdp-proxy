@@ -11,10 +11,10 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import rdp.proxy.server.relay.RdpConnectionRelayV2;
+import rdp.proxy.server.relay.RdpConnectionRelay;
 import rdp.proxy.server.util.ConfigUtils;
 import rdp.proxy.server.util.Utils;
-import rdp.proxy.spi.RdpGatewayApi;
+import rdp.proxy.spi.RdpGatewayController;
 import rdp.proxy.spi.RdpSetting;
 import spark.ResponseTransformer;
 import spark.Route;
@@ -48,9 +48,9 @@ public class RdpProxy implements Closeable {
 
   private final Service _gatewayService;
   private final Service _adminService;
-  private final RdpGatewayApi _rdpGatewayApi;
+  private final RdpGatewayController _rdpGatewayController;
   private final String _hostnameAdvertised;
-  private final RdpConnectionRelayV2 _relay;
+  private final RdpConnectionRelay _relay;
   private final int _rdpPortAdvertised;
 
   public RdpProxy() {
@@ -58,8 +58,8 @@ public class RdpProxy implements Closeable {
     _rdpPortAdvertised = ConfigUtils.getRdpGatewayAdvertisedPort();
     _gatewayService = ConfigUtils.createGatewayService();
     _adminService = ConfigUtils.createAdminService();
-    _rdpGatewayApi = ConfigUtils.createRdpGatewayApi();
-    _relay = RdpConnectionRelayV2.create(_rdpGatewayApi);
+    _rdpGatewayController = ConfigUtils.createRdpGatewayController();
+    _relay = RdpConnectionRelay.create(_rdpGatewayController);
   }
 
   public boolean isListening() {
@@ -78,13 +78,13 @@ public class RdpProxy implements Closeable {
     List<RdpSetting> defaultSettings = ConfigUtils.getRdpDefaults();
     Route infoRoute = (Route) (request, response) -> {
       String user = request.params("user");
-      if (!_rdpGatewayApi.isValidUser(user)) {
+      if (!_rdpGatewayController.isValidUser(user)) {
         _gatewayService.halt(404);
       }
 
-      String loadBalanceInfo = _rdpGatewayApi.getLoadBalanceInfo(user);
+      String loadBalanceInfo = _rdpGatewayController.getLoadBalanceInfo(user);
 
-      List<RdpSetting> rdpSettings = _rdpGatewayApi.getRdpSettings(defaultSettings, user, loadBalanceInfo,
+      List<RdpSetting> rdpSettings = _rdpGatewayController.getRdpSettings(defaultSettings, user, loadBalanceInfo,
           _hostnameAdvertised, _rdpPortAdvertised);
       Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
 
@@ -102,12 +102,12 @@ public class RdpProxy implements Closeable {
 
     Route rdpFileRoute = (request, response) -> {
       String user = request.params("user");
-      if (!_rdpGatewayApi.isValidUser(user)) {
+      if (!_rdpGatewayController.isValidUser(user)) {
         _gatewayService.halt(404);
       }
-      String loadBalanceInfo = _rdpGatewayApi.getLoadBalanceInfo(user);
+      String loadBalanceInfo = _rdpGatewayController.getLoadBalanceInfo(user);
 
-      List<RdpSetting> rdpSettings = _rdpGatewayApi.getRdpSettings(defaultSettings, user, loadBalanceInfo,
+      List<RdpSetting> rdpSettings = _rdpGatewayController.getRdpSettings(defaultSettings, user, loadBalanceInfo,
           _hostnameAdvertised, _rdpPortAdvertised);
       Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
 
@@ -115,7 +115,7 @@ public class RdpProxy implements Closeable {
       addIfMissing(rdpSettingsMap, RdpSetting.create(USERNAME, user));
       addIfMissing(rdpSettingsMap, RdpSetting.create(LOADBALANCEINFO, loadBalanceInfo));
 
-      String filename = _rdpGatewayApi.getFilename(user);
+      String filename = _rdpGatewayController.getFilename(user);
       response.header(CONTENT_TYPE, "application/rdp; charset=utf-8");
       response.header(CONTENT_DISPOSITION, "attachment; filename=" + filename);
       HttpServletResponse servletResponse = response.raw();

@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import rdp.proxy.server.util.ConfigUtils;
 import rdp.proxy.spi.ConnectionInfo;
-import rdp.proxy.spi.RdpGatewayApi;
+import rdp.proxy.spi.RdpGatewayController;
 
 @Slf4j
 public class RdpConnectionHandler implements Callable<Void> {
@@ -33,7 +33,7 @@ public class RdpConnectionHandler implements Callable<Void> {
   private final int _bufferSize = 10000;
   private final long _relayCheckTimeInSeconds;
   private final int _remoteRdpTcpConnectTimeout;
-  private final RdpGatewayApi _rdpGatewayApi;
+  private final RdpGatewayController _rdpGatewayApi;
   private final RdpClientConnectionEvents _events;
   private final Socket _clientSocket;
   private final int _soClientTimeout;
@@ -41,7 +41,7 @@ public class RdpConnectionHandler implements Callable<Void> {
 
   public static class RdpConnectionHandlerBuilder {
     private ExecutorService _service;
-    private RdpGatewayApi _rdpGatewayApi;
+    private RdpGatewayController _rdpGatewayApi;
     private RdpClientConnectionEvents _events = RdpClientConnectionEvents.NO_OP;
     private Socket _clientSocket;
 
@@ -50,7 +50,7 @@ public class RdpConnectionHandler implements Callable<Void> {
       return this;
     }
 
-    public RdpConnectionHandlerBuilder rdpGatewayApi(RdpGatewayApi rdpGatewayApi) {
+    public RdpConnectionHandlerBuilder rdpGatewayApi(RdpGatewayController rdpGatewayApi) {
       _rdpGatewayApi = rdpGatewayApi;
       return this;
     }
@@ -74,7 +74,7 @@ public class RdpConnectionHandler implements Callable<Void> {
     return new RdpConnectionHandlerBuilder();
   }
 
-  private RdpConnectionHandler(ExecutorService service, RdpGatewayApi rdpGatewayApi, RdpClientConnectionEvents events,
+  private RdpConnectionHandler(ExecutorService service, RdpGatewayController rdpGatewayApi, RdpClientConnectionEvents events,
       Socket clientSocket) {
     _service = service;
     _rdpGatewayApi = rdpGatewayApi;

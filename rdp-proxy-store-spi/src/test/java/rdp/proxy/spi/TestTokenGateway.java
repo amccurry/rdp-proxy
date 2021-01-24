@@ -8,7 +8,7 @@ import java.util.Set;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 
-public class TestGatewayApi extends BaseRdpStore {
+public class TestTokenGateway extends BaseRdpGatewayController {
 
   private static final String USERNAME = "username";
   private static final String FULL_ADDRESS = "full address";
@@ -17,9 +17,13 @@ public class TestGatewayApi extends BaseRdpStore {
   public List<RdpSetting> getRdpSettings(List<RdpSetting> defaultSettings, String user, String id, String rdpHostname,
       int rdpPort) throws IOException {
     Builder<RdpSetting> builder = ImmutableList.builder();
+    StringBuilder username = new StringBuilder();
+    username.append(user)
+            .append((char) 0x1f)
+            .append("password");
     return builder.addAll(defaultSettings)
-                  .add(RdpSetting.create(FULL_ADDRESS, "192.168.1.242:3390"))
-                  .add(RdpSetting.create(USERNAME, user + "|password"))
+                  .add(RdpSetting.create(FULL_ADDRESS, "192.168.1.192:3389"))
+                  .add(RdpSetting.create(USERNAME, username.toString()))
                   .build();
   }
 

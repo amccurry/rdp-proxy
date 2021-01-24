@@ -8,10 +8,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public abstract class BaseRdpStore implements RdpGatewayApi {
+public abstract class BaseRdpGatewayController implements RdpGatewayController {
   public static final String COOKIE_MSTSHASH = "Cookie: mstshash=";
 
-  public static RdpGatewayApi INSTANCE = new BaseRdpStore() {
+  public static RdpGatewayController INSTANCE = new BaseRdpGatewayController() {
   };
 
   @Override
