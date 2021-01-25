@@ -2,6 +2,7 @@ package rdp.proxy.spi;
 
 public class RdpSetting {
 
+  private static final String USERNAME = "username";
   private static final String INT_TYPE = "i";
   private static final String STRING_TYPE = "s";
   private final Long _longValue;
@@ -117,6 +118,16 @@ public class RdpSetting {
     default:
       throw new RuntimeException("Type [" + type + "] not found");
     }
+  }
+
+  public static RdpSetting createUsernameWithToken(String user, String token) {
+    StringBuilder username = new StringBuilder();
+    username.append(user)
+            .append((char) 0x1f)
+            .append(user)
+            .append('|')
+            .append(token);
+    return create(USERNAME, username.toString());
   }
 
 }

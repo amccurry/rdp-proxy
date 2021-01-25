@@ -1,4 +1,4 @@
-package rdp.proxy.service.spi;
+package rdp.proxy.spi;
 
 import spark.Service;
 

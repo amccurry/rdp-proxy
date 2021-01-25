@@ -11,17 +11,25 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.Value;
 import rdp.proxy.server.relay.RdpConnectionRelay;
 import rdp.proxy.server.util.ConfigUtils;
 import rdp.proxy.server.util.Utils;
 import rdp.proxy.spi.RdpGatewayController;
 import rdp.proxy.spi.RdpSetting;
+import spark.Request;
+import spark.Response;
 import spark.ResponseTransformer;
 import spark.Route;
 import spark.Service;
 
 public class RdpProxy implements Closeable {
 
+  private static final String TOKEN_VALIDATION = "/token-validation";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String RDP_FILE_USER = "/rdp-file/:user";
   private static final String RDP_JSON_USER = "/rdp-json/:user";
@@ -111,8 +119,14 @@ public class RdpProxy implements Closeable {
           _hostnameAdvertised, _rdpPortAdvertised);
       Map<String, RdpSetting> rdpSettingsMap = toMap(rdpSettings);
 
+      if (_rdpGatewayController.isTokenAuthenticationEnabled()) {
+        String token = _rdpGatewayController.getTokenAuthentication(user, request);
+        addIfMissing(rdpSettingsMap, RdpSetting.createUsernameWithToken(user, token));
+      } else {
+        addIfMissing(rdpSettingsMap, RdpSetting.create(USERNAME, user));
+      }
+
       addIfMissing(rdpSettingsMap, RdpSetting.create(FULL_ADDRESS, _hostnameAdvertised + ":" + _rdpPortAdvertised));
-      addIfMissing(rdpSettingsMap, RdpSetting.create(USERNAME, user));
       addIfMissing(rdpSettingsMap, RdpSetting.create(LOADBALANCEINFO, loadBalanceInfo));
 
       String filename = _rdpGatewayController.getFilename(user);
@@ -130,6 +144,28 @@ public class RdpProxy implements Closeable {
     _gatewayService.get(RDP_INFO_USER, infoRoute);
     _gatewayService.get(RDP_JSON_USER, infoRoute, JSON_TRANSFORMER);
     _gatewayService.get(RDP_FILE_USER, rdpFileRoute);
+    _gatewayService.post(TOKEN_VALIDATION, new Route() {
+      @Override
+      public Object handle(Request request, Response response) throws Exception {
+        TokenValidation tokenValidation = OBJECT_MAPPER.readValue(request.bodyAsBytes(), TokenValidation.class);
+        System.out.println(tokenValidation);
+        if (_rdpGatewayController.isTokenValid(tokenValidation.getToken())) {
+          response.status(200);
+          System.out.println("good!");
+        } else {
+          response.status(401);
+        }
+        return "";
+      }
+    });
+  }
+
+  @Value
+  @NoArgsConstructor(force = true, access = AccessLevel.PRIVATE)
+  @AllArgsConstructor
+  @Builder(toBuilder = true)
+  public static class TokenValidation {
+    String token;
   }
 
   @Override
